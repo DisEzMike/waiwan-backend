@@ -1,0 +1,34 @@
+# Byte-compiled / optimized / compiled files
+__pycache__/
+*.pyc
+*.pyd
+*.pyo
+
+# Virtual environment
+.venv/
+env/
+venv/
+.env
+
+# Editor-specific files
+.vscode/
+.idea/
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Database files
+*.sqlite3
+*.db
+
+# FastAPI-specific files (if applicable)
+# For example, if you generate a client or documentation
+# client/
+# docs/build/
+
+# Logs
+*.log
+
+# Test artifacts
+.pytest_cache/
