@@ -49,16 +49,16 @@ async def set_presence_and_loc(
 ) -> None:
     """
     เก็บสถานะออนไลน์ + พิกัดสดไว้ใน Redis พร้อม TTL
-    ใช้ pipeline ลด RTT; ไม่เก็บถาวร (privacy-first)
+    ใช้ pipeline ลด RTT; ไม่เก็บถาวร (privacy-first); payload ที่เก็บ: {"id", "lat", "lng"}
     """
-    
-    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
-        raise ValueError("Invalid lat/lng")
     
     if lat is None or lng is None:
         raise ValueError("lat and lng are required")
     
-    payload = {"lat": float(lat), "lng": float(lng)}
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        raise ValueError("Invalid lat/lng")
+    
+    payload = {"id": int(provider_id), "lat": float(lat), "lng": float(lng)}
     
     await set_presence(provider_id, ttl)
     
@@ -83,6 +83,28 @@ async def online_ids() -> List[int]:
             continue
     return out
 
+async def get_loc(pid: int) -> Optional[Dict]:
+    """
+    ดึงตำแหน่งล่าสุดของ provider ตาม pid
+    คืนค่าเป็น {"id": pid, "lat": float, "lng": float} หรือ None ถ้าไม่มีข้อมูล/หมดอายุ
+    """
+    r = get_redis()
+    raw = await r.get(_loc_key(pid))
+    if not raw:
+        return None
+    try:
+        obj = json.loads(raw)
+        # เติม id หาก payload เดิมไม่มี (เผื่อ backward compatibility)
+        if "id" not in obj:
+            obj["id"] = int(pid)
+        # แปลงชนิดให้ชัดเจน
+        obj["id"] = int(obj["id"])
+        obj["lat"] = float(obj["lat"])
+        obj["lng"] = float(obj["lng"])
+        return obj
+    except Exception:
+        return None
+
 async def get_locations_batch(pids: List[int]) -> Dict[int, Dict]:
     """
     ดึงพิกัดของหลาย provider แบบ batch (pipeline) เพื่อประสิทธิภาพ
@@ -91,10 +113,10 @@ async def get_locations_batch(pids: List[int]) -> Dict[int, Dict]:
         return {}
     r = get_redis()
     pipe = r.pipeline()
+    res: Dict[int, Dict] = {}
     for pid in pids:
         pipe.get(_loc_key(pid))
-    vals = await pipe.execute()
-    res: Dict[int, Dict] = {}
+    vals = await pipe.execute()    
     for pid, raw in zip(pids, vals):
         if raw:
             try:

@@ -83,5 +83,6 @@ class HeartbeatIn(BaseModel):
 # ---------- Search ----------
 class SearchPayload(BaseModel):
     keyword: str = Field(..., description="Keyword to find a work")
+    top_k: int = 5
     lat: float = Field(..., description="Latitude in decimal degrees")
     lng: float = Field(..., description="Longitude in decimal degrees")
