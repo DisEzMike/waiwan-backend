@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from scipy import stats
 from sqlalchemy import select
 
+from ..utils.embedder import embed_query
+
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
 from ..database.models.users import UserProfiles, Users
 from ..utils.deps import get_db
@@ -76,12 +78,14 @@ async def verify_otp(payload: VerifyOTP, session=Depends(get_db)):
             session.add(profile)
             session.flush()
             
+            embedding = embed_query(" ".join([payload.career, payload.other_ability]))
             ability = SeniorAbilities(
                 type=payload.type,
                 career=payload.career,
                 other_ability=payload.other_ability,
                 vehicle=payload.vihecle,
                 offsite_work=payload.offsite_work,
+                embedding=embedding
                 # file_id=payload.file_id,
             )
             session.add(ability)

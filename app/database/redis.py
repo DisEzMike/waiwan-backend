@@ -1,5 +1,4 @@
 from __future__ import annotations
-from os import getenv
 from typing import Dict, List, Optional
 from redis.asyncio import Redis
 
@@ -39,7 +38,8 @@ async def set_presence(provider_id: int, ttl: int) -> None:
     """
     เก็บสถานะออนไลน์ (presence) ไว้ใน Redis พร้อม TTL
     """
-    await _redis.setex(_presence_key(provider_id), ttl, "1")
+    r = get_redis()
+    await r.setex(_presence_key(provider_id), ttl, "1")
 
 async def set_presence_and_loc(
     provider_id: int,
@@ -62,7 +62,8 @@ async def set_presence_and_loc(
     
     await set_presence(provider_id, ttl)
     
-    pipe = _redis.pipeline()
+    r = get_redis()
+    pipe = r.pipeline()
     await pipe.setex(_loc_key(provider_id), ttl, json.dumps(payload))
     await pipe.execute()    
     
@@ -73,24 +74,26 @@ async def online_ids() -> List[int]:
     คืนรายการ provider_id ที่ยังออนไลน์ (presence key ยังไม่หมดอายุ)
     ใช้ SCAN แทน KEYS สำหรับโปรดักชัน
     """
+    r = get_redis()
     out: List[int] = []
-    for key in await (_redis.scan_iter(match="provider:*:presence", count=500)):
+    async for key in r.scan_iter(match="senior:*:presence", count=500):
         try:
             out.append(int(key.split(":")[1]))
         except Exception:
             continue
     return out
 
-def get_locations_batch(pids: List[int]) -> Dict[int, Dict]:
+async def get_locations_batch(pids: List[int]) -> Dict[int, Dict]:
     """
     ดึงพิกัดของหลาย provider แบบ batch (pipeline) เพื่อประสิทธิภาพ
     """
     if not pids:
         return {}
-    pipe = _redis.pipeline()
+    r = get_redis()
+    pipe = r.pipeline()
     for pid in pids:
         pipe.get(_loc_key(pid))
-    vals = pipe.execute()
+    vals = await pipe.execute()
     res: Dict[int, Dict] = {}
     for pid, raw in zip(pids, vals):
         if raw:

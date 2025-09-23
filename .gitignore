@@ -32,3 +32,6 @@ Thumbs.db
 
 # Test artifacts
 .pytest_cache/
+
+test_active_user.py
+loc.json

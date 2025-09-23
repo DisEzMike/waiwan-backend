@@ -73,8 +73,15 @@ class AbilitySearchPayload(BaseModel):
     top_k: int = 5
     metric: str = Field(default="cosine", description='"cosine" | "l2" | "ip"')
     normalize_query: bool = True
-    
+
+# ---------- Heartbeat ----------
 class HeartbeatIn(BaseModel):
     lat: float = Field(..., description="Latitude in decimal degrees")
     lng: float = Field(..., description="Longitude in decimal degrees")
     # accuracy: float | None = Field(None, description="GPS accuracy (meters)")
+    
+# ---------- Search ----------
+class SearchPayload(BaseModel):
+    keyword: str = Field(..., description="Keyword to find a work")
+    lat: float = Field(..., description="Latitude in decimal degrees")
+    lng: float = Field(..., description="Longitude in decimal degrees")
