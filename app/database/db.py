@@ -34,6 +34,9 @@ class DB:
     def create_all(self) -> None:
         from .models.users import Users, UserProfiles
         from .models.senior_users import SeniorUsers, SeniorProfiles, SeniorAbilities
+        from .models.jobs import Jobs, Status
+        from .models.reviews import Reviews
+        from .models.files import Files
         Base.metadata.create_all(bind=self.engine)
 
     @contextlib.contextmanager

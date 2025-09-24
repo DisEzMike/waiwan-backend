@@ -48,12 +48,12 @@ class SeniorAbilities(Base):
     other_ability: Mapped[str | None] = mapped_column(Text, nullable=True)
     vehicle: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     offsite_work: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    file_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("senior_files.id", ondelete="CASCADE"), nullable=True)
+    # file_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("senior_files.id", ondelete="CASCADE"), nullable=True)
     # embedding vector(384)
     embedding = Column(Vector(384), nullable=True)
 
     user = relationship("SeniorUsers", back_populates="ability", uselist=False)
-    file = relationship("SeniorFiles", back_populates="ability", uselist=False)
+    # file = relationship("SeniorFiles", back_populates="ability", uselist=False)
     
 class SeniorFiles(Base):
     __tablename__ = "senior_files"
