@@ -15,7 +15,7 @@ from ..database.models.senior_users import SeniorAbilities
 from ..utils.embedder import embed_query
 
 from ..utils.deps import get_current_user, get_db
-from ..utils.schemas import AbilityOut, HeartbeatIn, MeResponse, ProfileOut, SearchOut, SearchPayload, UserOut
+from ..utils.schemas import SearchOut, SearchPayload
 
 router = APIRouter(prefix="/search", tags=["search"])
 
