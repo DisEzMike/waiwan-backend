@@ -83,4 +83,37 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
     out_over05 = sorted(list(filter(over05, filtered_out)), key=lambda x: x['score'], reverse=True)
     out_below05 = sorted(list(filter(below05, filtered_out)), key=lambda x: x['distance'])
     out = [*out_over05, *out_below05]
-    return out
+    return {'count': len(out),'list': out}
+
+@router.get("/nearby")
+async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends(get_current_user), session: Session = Depends(get_db)):
+    out = []
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Only user can use a search -> {user.role}")
+    
+    online_list = await online_ids()
+    online_loc_lst = [await get_loc(x) for x in online_list]
+    
+    from haversine import haversine
+    def filter_by_range(x):
+        return haversine((lat,lng), (x['lat'], x['lng']), unit="m") <= range
+    filterd_lst = list(filter(filter_by_range, online_loc_lst))
+    
+    ids: list[int] = [x['id'] for x in filterd_lst]
+    q = session.query(SeniorAbilities).where(SeniorAbilities.id.in_(ids))
+    rows = q.all()
+    for r, usr in zip(rows, filterd_lst):
+        data = {
+            "id": usr['id'],
+            "type": r.type,
+            "career": r.career,
+            "other_ability": r.other_ability,
+            "vehicle": r.vehicle,
+            "offsite_work": r.offsite_work,
+            "distance": haversine((lat,lng), (usr['lat'], usr['lng']), unit="m")
+        }
+        out.append(data)
+    out = sorted(out, key=lambda x: x['distance'])
+    return {'count': len(out),'list': out}
