@@ -93,3 +93,16 @@ class SearchPayload(BaseModel):
 class SearchOut(BaseModel):
     count: int
     list: list
+    
+# ---------- Job ----------
+class JobPayload(BaseModel):
+    id: int
+    status: Optional[int] = None
+    user_id: Optional[int] = None
+    senior_id: Optional[int] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    price: Optional[float] = None
+    work_type: Optional[str] = None
+    vehicle: Optional[bool] = None
+    updated_at: Optional[datetime] = None
