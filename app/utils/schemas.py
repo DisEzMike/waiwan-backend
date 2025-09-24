@@ -59,20 +59,10 @@ class AbilityOut(BaseModel):
     career: Optional[str] = None
     other_ability: Optional[str] = None
 
-class AbilityUpdateEmbedding(BaseModel):
-    embedding: List[float] = Field(..., min_length=384, max_length=384)
-
 class MeResponse(BaseModel):
     user: UserOut
     profile: Optional[ProfileOut] = None
     ability: Optional[AbilityOut] = None
-
-# ---------- Vector Search ----------
-class AbilitySearchPayload(BaseModel):
-    embedding: List[float] = Field(..., min_length=384, max_length=384)
-    top_k: int = 5
-    metric: str = Field(default="cosine", description='"cosine" | "l2" | "ip"')
-    normalize_query: bool = True
 
 # ---------- Heartbeat ----------
 class HeartbeatIn(BaseModel):
@@ -83,6 +73,8 @@ class HeartbeatIn(BaseModel):
 # ---------- Search ----------
 class SearchPayload(BaseModel):
     keyword: str = Field(..., description="Keyword to find a work")
-    top_k: int = 5
     lat: float = Field(..., description="Latitude in decimal degrees")
     lng: float = Field(..., description="Longitude in decimal degrees")
+    top_k: int = 20
+    range: int = 5000 # 5km
+    

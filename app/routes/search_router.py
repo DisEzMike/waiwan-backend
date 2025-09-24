@@ -27,11 +27,10 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=f"Only user can use a search -> {user.role}")
     
     query = payload.keyword
-    # lat = payload.lat
-    # lng = payload.lng
-    lat = 13.7540
-    lng = 100.5014
+    lat = payload.lat
+    lng = payload.lng
     k = payload.top_k
+    range = payload.range
     
     online_list = await online_ids()
     
@@ -60,7 +59,7 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
         
         dist = haversine((lat, lng),(location['lat'], location['lng']), unit="m")
         
-        score = setScore(sim, dist, 0.7)
+        score = setScore(sim, dist, 0.7, range)
         data = {
             "id": user.id,
             "type": r.type,
@@ -78,6 +77,10 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
         return x['score'] >= 0.5
     def below05(x):
         return x['score'] < 0.5
-    out_over05 = sorted(list(filter(over05, out)), key=lambda x: x['score'], reverse=True)
-    out_below05 = sorted(list(filter(below05, out)), key=lambda x: x['distance'])
-    return out_over05 + out_below05
+    def range_filter(x):
+        return x['distance'] <= range
+    filtered_out = list(filter(range_filter, out))
+    out_over05 = sorted(list(filter(over05, filtered_out)), key=lambda x: x['score'], reverse=True)
+    out_below05 = sorted(list(filter(below05, filtered_out)), key=lambda x: x['distance'])
+    out = [*out_over05, *out_below05]
+    return out

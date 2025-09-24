@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
+from ..services.user import set_online
+
 from ..utils.deps import get_current_user, get_db
 from ..utils.schemas import AbilityOut, HeartbeatIn, MeResponse, ProfileOut, UserOut
 
@@ -34,7 +36,7 @@ def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
     ) 
     
 
-@router.post("/heartbeat", status_code=status.HTTP_204_NO_CONTENT)
+@router.post("/set-online", status_code=status.HTTP_204_NO_CONTENT)
 async def heartbeat(
     payload: HeartbeatIn,
     ctx = Depends(get_current_user),
@@ -43,14 +45,8 @@ async def heartbeat(
     if user.role != "senior_user":
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only senior_user can send heartbeat")
     
-    from ..database.redis import set_presence_and_loc, PRESENCE_TTL_SECONDS
+    from ..database.redis import PRESENCE_TTL_SECONDS
+    await set_online(user, payload.lat, payload.lng, PRESENCE_TTL_SECONDS)
 
-    await set_presence_and_loc(
-        provider_id=user.id,
-        lat=payload.lat,
-        lng=payload.lng,
-        # accuracy=payload.accuracy,
-        ttl=PRESENCE_TTL_SECONDS,
-    )
     return
 
