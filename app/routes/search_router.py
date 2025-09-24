@@ -10,7 +10,7 @@ from ..services.user import getUser_by_ability_id, getUser_by_id
 
 from ..database.redis import get_loc, get_locations_batch, online_ids
 
-from ..database.models.senior_users import SeniorAbilities
+from ..database.models.senior_users import SeniorAbilities, SeniorUsers
 
 from ..utils.embedder import embed_query
 
@@ -33,6 +33,8 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
     range = payload.range
     
     online_list = await online_ids()
+    q = session.query(SeniorUsers).where(SeniorUsers.id.in_(online_list))
+    rows = q.all()
     
     qvec = embed_query(query)
     q = (
@@ -40,11 +42,13 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
                 SeniorAbilities, 
                 1 - SeniorAbilities.embedding.cosine_distance(qvec).label("sim")
             )
-            .where(SeniorAbilities.id.in_(online_list))
+            .where(SeniorAbilities.id.in_([x.ability_id for x in rows]))
             .order_by(SeniorAbilities.embedding.cosine_distance(qvec))
             .limit(k)
         )
     rows = q.all()
+    
+    print(rows)
     
     out = []
     for r,sim in rows:
@@ -96,12 +100,15 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
     online_list = await online_ids()
     online_loc_lst = [await get_loc(x) for x in online_list]
     
+    q = session.query(SeniorUsers).where(SeniorUsers.id.in_(online_list))
+    rows = q.all()
+    
     from haversine import haversine
     def filter_by_range(x):
         return haversine((lat,lng), (x['lat'], x['lng']), unit="m") <= range
     filterd_lst = list(filter(filter_by_range, online_loc_lst))
     
-    ids: list[int] = [x['id'] for x in filterd_lst]
+    ids: list[str] = [x.ability_id for x in rows]
     q = session.query(SeniorAbilities).where(SeniorAbilities.id.in_(ids))
     rows = q.all()
     for r, usr in zip(rows, filterd_lst):

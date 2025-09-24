@@ -69,21 +69,21 @@ async def set_presence_and_loc(
     
     
     
-async def online_ids() -> List[int]:
+async def online_ids() -> List[str]:
     """
     คืนรายการ provider_id ที่ยังออนไลน์ (presence key ยังไม่หมดอายุ)
     ใช้ SCAN แทน KEYS สำหรับโปรดักชัน
     """
     r = get_redis()
-    out: List[int] = []
+    out: List[str] = []
     async for key in r.scan_iter(match="senior:*:presence", count=500):
         try:
-            out.append(int(key.split(":")[1]))
+            out.append(key.split(":")[1])
         except Exception:
             continue
     return out
 
-async def get_loc(pid: int) -> Optional[Dict]:
+async def get_loc(pid: str) -> Optional[Dict]:
     """
     ดึงตำแหน่งล่าสุดของ provider ตาม pid
     คืนค่าเป็น {"id": pid, "lat": float, "lng": float} หรือ None ถ้าไม่มีข้อมูล/หมดอายุ
@@ -96,16 +96,16 @@ async def get_loc(pid: int) -> Optional[Dict]:
         obj = json.loads(raw)
         # เติม id หาก payload เดิมไม่มี (เผื่อ backward compatibility)
         if "id" not in obj:
-            obj["id"] = int(pid)
+            obj["id"] = pid
         # แปลงชนิดให้ชัดเจน
-        obj["id"] = int(obj["id"])
+        obj["id"] = obj["id"]
         obj["lat"] = float(obj["lat"])
         obj["lng"] = float(obj["lng"])
         return obj
     except Exception:
         return None
 
-async def get_locations_batch(pids: List[int]) -> Dict[int, Dict]:
+async def get_locations_batch(pids: List[str]) -> Dict[str, Dict]:
     """
     ดึงพิกัดของหลาย provider แบบ batch (pipeline) เพื่อประสิทธิภาพ
     """
@@ -113,7 +113,7 @@ async def get_locations_batch(pids: List[int]) -> Dict[int, Dict]:
         return {}
     r = get_redis()
     pipe = r.pipeline()
-    res: Dict[int, Dict] = {}
+    res: Dict[str, Dict] = {}
     for pid in pids:
         pipe.get(_loc_key(pid))
     vals = await pipe.execute()    
