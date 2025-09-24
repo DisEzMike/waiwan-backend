@@ -1,19 +1,28 @@
 from __future__ import annotations
-from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, Boolean
+from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, Boolean, String, CheckConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
+import secrets
 
 from ..db import Base
+
+# Generate a prefixed 8-hex-digit id like "s1a2b3c4"
+def gen_hex_id(prefix: str) -> str:
+    return f"{prefix.upper()}{secrets.token_hex(4)}"
 
 class SeniorUsers(Base):
     __tablename__ = "senior_users"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    __table_args__ = (
+        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_users_id_format_chk"),
+    )
+
+    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("s"))
     displayname: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Foreign Keys (Integer)
-    profile_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("senior_profiles.id", ondelete="CASCADE"))
-    ability_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("senior_abilities.id", ondelete="CASCADE"))
+    # Foreign Keys (String(9))
+    profile_id: Mapped[str | None] = mapped_column(String(9), ForeignKey("senior_profiles.id", ondelete="CASCADE"))
+    ability_id: Mapped[str | None] = mapped_column(String(9), ForeignKey("senior_abilities.id", ondelete="CASCADE"))
 
     activated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -25,7 +34,11 @@ class SeniorUsers(Base):
 class SeniorProfiles(Base):
     __tablename__ = "senior_profiles"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    __table_args__ = (
+        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_profiles_id_format_chk"),
+    )
+
+    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("sp"))
     first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     id_card: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -42,7 +55,11 @@ class SeniorProfiles(Base):
 class SeniorAbilities(Base):
     __tablename__ = "senior_abilities"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    __table_args__ = (
+        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_abilities_id_format_chk"),
+    )
+
+    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("sa"))
     type: Mapped[str | None] = mapped_column(Text, nullable=True)
     career: Mapped[str | None] = mapped_column(Text, nullable=True)
     other_ability: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -58,8 +75,12 @@ class SeniorAbilities(Base):
 class SeniorFiles(Base):
     __tablename__ = "senior_files"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
+    __table_args__ = (
+        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_files_id_format_chk"),
+    )
+
+    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("sf"))
     filename: Mapped[str] = mapped_column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
-    ability = relationship("SeniorAbilities", back_populates="file", uselist=False)
+    # ability = relationship("SeniorAbilities", back_populates="file", uselist=False)
