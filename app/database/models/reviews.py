@@ -13,4 +13,4 @@ class Reviews(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
-    job = relationship("Jobs", back_populates="s", uselist=False)
+    job = relationship("Jobs", back_populates="review", uselist=False)

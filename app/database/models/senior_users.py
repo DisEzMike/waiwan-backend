@@ -8,21 +8,20 @@ from ..db import Base
 
 # Generate a prefixed 8-hex-digit id like "s1a2b3c4"
 def gen_hex_id(prefix: str) -> str:
-    return f"{prefix.upper()}{secrets.token_hex(4)}"
+    return f"{prefix}{secrets.token_hex(4)}"
 
 class SeniorUsers(Base):
     __tablename__ = "senior_users"
-
     __table_args__ = (
-        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_users_id_format_chk"),
+        CheckConstraint("id ~ '^S[0-9a-f]{8}$'", name="senior_users_id_format_chk"),
     )
 
-    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("s"))
+    id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("S"))
     displayname: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Foreign Keys (String(9))
-    profile_id: Mapped[str | None] = mapped_column(String(9), ForeignKey("senior_profiles.id", ondelete="CASCADE"))
-    ability_id: Mapped[str | None] = mapped_column(String(9), ForeignKey("senior_abilities.id", ondelete="CASCADE"))
+    # Foreign Keys (Text)
+    profile_id: Mapped[str | None] = mapped_column(Text, ForeignKey("senior_profiles.id", ondelete="CASCADE"))
+    ability_id: Mapped[str | None] = mapped_column(Text, ForeignKey("senior_abilities.id", ondelete="CASCADE"))
 
     activated_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -30,15 +29,15 @@ class SeniorUsers(Base):
     # ORM relationships (one-to-one แบบ uselist=False)
     profile = relationship("SeniorProfiles", back_populates="user", uselist=False)
     ability = relationship("SeniorAbilities", back_populates="user", uselist=False)
+    job = relationship("Jobs", back_populates="senior", uselist=True)
 
 class SeniorProfiles(Base):
     __tablename__ = "senior_profiles"
-
     __table_args__ = (
-        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_profiles_id_format_chk"),
+        CheckConstraint("id ~ '^SP[0-9a-f]{8}$'", name="senior_profiles_id_format_chk"),
     )
 
-    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("sp"))
+    id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("SP"))
     first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     id_card: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -54,12 +53,11 @@ class SeniorProfiles(Base):
 
 class SeniorAbilities(Base):
     __tablename__ = "senior_abilities"
-
     __table_args__ = (
-        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_abilities_id_format_chk"),
+        CheckConstraint("id ~ '^SA[0-9a-f]{8}$'", name="senior_abilities_id_format_chk"),
     )
-
-    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("sa"))
+    
+    id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("SA"))
     type: Mapped[str | None] = mapped_column(Text, nullable=True)
     career: Mapped[str | None] = mapped_column(Text, nullable=True)
     other_ability: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -74,12 +72,11 @@ class SeniorAbilities(Base):
     
 class SeniorFiles(Base):
     __tablename__ = "senior_files"
-
     __table_args__ = (
-        CheckConstraint("id ~ '^s[0-9a-f]{8}$'", name="senior_files_id_format_chk"),
+        CheckConstraint("id ~ '^SF[0-9a-f]{8}$'", name="senior_files_id_format_chk"),
     )
 
-    id: Mapped[str] = mapped_column(String(9), primary_key=True, index=True, default=lambda: gen_hex_id("sf"))
+    id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("SF"))
     filename: Mapped[str] = mapped_column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 

@@ -34,22 +34,22 @@ class VerifyOTP(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
-    user_id: int
+    user_id: str
     role: str
-    profile_id: Optional[int] = None
-    ability_id: Optional[int] = None
+    profile_id: Optional[str] = None
+    ability_id: Optional[str] = None
 
 # ---------- Users / Profiles / Abilities ----------
 class UserOut(BaseModel):
-    id: int
+    id: str
     role: Optional[str] = None
     displayname: Optional[str] = None
-    profile_id: Optional[int] = None
-    ability_id: Optional[int] = None
+    profile_id: Optional[str] = None
+    ability_id: Optional[str] = None
     created_at: datetime = None
 
 class ProfileOut(BaseModel):
-    id: int
+    id: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     id_card: Optional[str] = None
@@ -62,13 +62,13 @@ class ProfileOut(BaseModel):
     contact_phone: Optional[str] = None
 
 class AbilityOut(BaseModel):
-    id: int
+    id: str
     type: Optional[str] = None
     career: Optional[str] = None
     other_ability: Optional[str] = None
     vehicle: Optional[bool] = None
     offsite_work: Optional[bool] = None
-    file_id: Optional[int] = None
+    file_id: Optional[str] = None
     embedding: Optional[List[float]] = None
 
 class UserResponse(BaseModel):
@@ -98,8 +98,8 @@ class SearchOut(BaseModel):
 class JobPayload(BaseModel):
     id: int
     status: Optional[int] = None
-    user_id: Optional[int] = None
-    senior_id: Optional[int] = None
+    user_id: Optional[str] = None
+    senior_id: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None

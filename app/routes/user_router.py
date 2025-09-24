@@ -48,7 +48,7 @@ def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
     )
     
 @router.get("/{user_id}")
-async def get_user(user_id: int, ctx = Depends(get_current_user), session: Session = Depends(get_db)):
+async def get_user(user_id: str, ctx = Depends(get_current_user), session: Session = Depends(get_db)):
     user: SeniorUsers | None = getUser_by_id(user_id, session)
     if user is None : raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     profile: SeniorProfiles = user.profile

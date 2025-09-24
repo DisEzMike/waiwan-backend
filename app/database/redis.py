@@ -28,13 +28,13 @@ def get_redis() -> Redis:
     return _redis
 
 # -------- Key design --------
-def _presence_key(pid: int) -> str:
+def _presence_key(pid: str) -> str:
     return f"senior:{pid}:presence"
 
-def _loc_key(pid: int) -> str:
+def _loc_key(pid: str) -> str:
     return f"senior:{pid}:loc"
 
-async def set_presence(provider_id: int, ttl: int) -> None:
+async def set_presence(provider_id: str, ttl: int) -> None:
     """
     เก็บสถานะออนไลน์ (presence) ไว้ใน Redis พร้อม TTL
     """
@@ -42,7 +42,7 @@ async def set_presence(provider_id: int, ttl: int) -> None:
     await r.setex(_presence_key(provider_id), ttl, "1")
 
 async def set_presence_and_loc(
-    provider_id: int,
+    provider_id: str,
     lat: float,
     lng: float,
     ttl: int,
@@ -58,7 +58,7 @@ async def set_presence_and_loc(
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         raise ValueError("Invalid lat/lng")
     
-    payload = {"id": int(provider_id), "lat": float(lat), "lng": float(lng)}
+    payload = {"id": provider_id, "lat": float(lat), "lng": float(lng)}
     
     await set_presence(provider_id, ttl)
     

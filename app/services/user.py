@@ -5,19 +5,19 @@ from ..database.redis import set_presence_and_loc
 
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
 
-def getUser_by_id(user_id: int, session: Session):
+def getUser_by_id(user_id: str, session: Session):
     user = session.execute(select(SeniorUsers).where(SeniorUsers.id == user_id)).scalars().first()
     return user
 
-def getUser_by_ability_id(ability_id: int, session: Session):
+def getUser_by_ability_id(ability_id: str, session: Session):
     user = session.execute(select(SeniorUsers).where(SeniorUsers.ability_id == ability_id)).scalars().first()
     return user
 
-def getProfile_by_id(profile_id: int, session: Session):
+def getProfile_by_id(profile_id: str, session: Session):
     user_profile = session.execute(select(SeniorProfiles).where(SeniorProfiles.id == profile_id)).scalars().first()
     return user_profile
 
-def getAbility_by_id(ability_id: int, session: Session):
+def getAbility_by_id(ability_id: str, session: Session):
     user_ability = session.execute(select(SeniorAbilities).where(SeniorAbilities.id == ability_id)).scalars().first()
     return user_ability
 

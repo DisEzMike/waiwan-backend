@@ -32,9 +32,9 @@ def get_current_user(
 
     user: Users | SeniorUsers | None = None
     if payload.get("role") == "user":
-        user = session.get(Users, int(sub))
+        user = session.get(Users, sub)
     elif payload.get("role") == "senior_user":
-        user = session.get(SeniorUsers, int(sub))
+        user = session.get(SeniorUsers, sub)
         
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")

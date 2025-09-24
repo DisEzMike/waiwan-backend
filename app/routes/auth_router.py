@@ -34,7 +34,7 @@ async def verify_otp(payload: VerifyOTP, session=Depends(get_db)):
         user: Users | None = None
         if profile:
             # Existing user
-            user = session.execute(select(Users).where(Users.profile_id == int(profile.id))).scalars().first()
+            user = session.execute(select(Users).where(Users.profile_id == profile.id)).scalars().first()
         else:
             # New user
             profile = UserProfiles(
@@ -60,7 +60,7 @@ async def verify_otp(payload: VerifyOTP, session=Depends(get_db)):
         user: SeniorUsers | None = None
         if profile:
             # Existing user
-            user = session.execute(select(SeniorUsers).where(SeniorUsers.profile_id == int(profile.id))).scalars().first()
+            user = session.execute(select(SeniorUsers).where(SeniorUsers.profile_id == profile.id)).scalars().first()
         else:
             # New user
             profile = SeniorProfiles(
