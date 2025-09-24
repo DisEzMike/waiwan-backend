@@ -39,15 +39,9 @@ def get_current_user(
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     
-    profile: UserProfiles | SeniorProfiles | None = None
-    ability: SeniorAbilities | None = None
-    
-    if payload.get("role") == "user":
-        profile = session.get(UserProfiles, user.profile_id)
-    elif payload.get("role") == "senior_user":
-        profile = session.get(SeniorProfiles, user.profile_id)
-        ability = session.get(SeniorAbilities, user.ability_id) if user.ability_id else None
-    
+    profile: UserProfiles | SeniorProfiles = user.profile
+    ability: SeniorAbilities | None = user.ability if payload.get("role") == "senior_user" else None
+     
     user.role = payload.get("role") 
     
     return (user, profile, ability)
