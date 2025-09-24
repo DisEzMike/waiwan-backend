@@ -3,9 +3,7 @@ from sqlalchemy.orm import Session
 
 from ..database.redis import set_presence_and_loc
 
-from ..utils.config import PRESENCE_TTL_SECONDS
-
-from ..database.models.senior_users import SeniorUsers
+from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
 
 def getUser_by_id(user_id: int, session: Session):
     user = session.execute(select(SeniorUsers).where(SeniorUsers.id == user_id)).scalars().first()
@@ -15,6 +13,14 @@ def getUser_by_ability_id(ability_id: int, session: Session):
     user = session.execute(select(SeniorUsers).where(SeniorUsers.ability_id == ability_id)).scalars().first()
     return user
 
+def getProfile_by_id(profile_id: int, session: Session):
+    user_profile = session.execute(select(SeniorProfiles).where(SeniorProfiles.id == profile_id)).scalars().first()
+    return user_profile
+
+def getAbility_by_id(ability_id: int, session: Session):
+    user_ability = session.execute(select(SeniorAbilities).where(SeniorAbilities.id == ability_id)).scalars().first()
+    return user_ability
+
 async def set_online(user: SeniorUsers, lat: float, lng: float, ttl: int):
     try:
         await set_presence_and_loc(
@@ -22,7 +28,7 @@ async def set_online(user: SeniorUsers, lat: float, lng: float, ttl: int):
             lat=lat,
             lng=lng,
             # accuracy=payload.accuracy,
-            ttl=PRESENCE_TTL_SECONDS,
+            ttl=ttl,
         )
     except Exception as e:
         print(e)
