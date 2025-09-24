@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional, List
+from typing import Optional
 from pydantic import BaseModel, Field
 
 # ---------- Auth ----------
@@ -76,5 +76,8 @@ class SearchPayload(BaseModel):
     lat: float = Field(..., description="Latitude in decimal degrees")
     lng: float = Field(..., description="Longitude in decimal degrees")
     top_k: int = 20
-    range: int = 5000 # 5km
-    
+    range: int = 10000 # 10km
+
+class SearchOut(BaseModel):
+    count: int
+    list: list

@@ -15,7 +15,7 @@ from ..database.models.senior_users import SeniorAbilities
 from ..utils.embedder import embed_query
 
 from ..utils.deps import get_current_user, get_db
-from ..utils.schemas import AbilityOut, HeartbeatIn, MeResponse, ProfileOut, SearchPayload, UserOut
+from ..utils.schemas import AbilityOut, HeartbeatIn, MeResponse, ProfileOut, SearchOut, SearchPayload, UserOut
 
 router = APIRouter(prefix="/search", tags=["search"])
 
@@ -83,7 +83,7 @@ async def Search(payload: SearchPayload, ctx = Depends(get_current_user), sessio
     out_over05 = sorted(list(filter(over05, filtered_out)), key=lambda x: x['score'], reverse=True)
     out_below05 = sorted(list(filter(below05, filtered_out)), key=lambda x: x['distance'])
     out = [*out_over05, *out_below05]
-    return {'count': len(out),'list': out}
+    return SearchOut(count=len(out), list=out)
 
 @router.get("/nearby")
 async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends(get_current_user), session: Session = Depends(get_db)):
@@ -116,4 +116,4 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
         }
         out.append(data)
     out = sorted(out, key=lambda x: x['distance'])
-    return {'count': len(out),'list': out}
+    return SearchOut(count=len(out), list=out)
