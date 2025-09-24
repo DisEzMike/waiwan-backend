@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel, Field
-
+from datetime import datetime
 # ---------- Auth ----------
 class RequestOTP(BaseModel):
     phone: str
@@ -46,6 +46,7 @@ class UserOut(BaseModel):
     displayname: Optional[str] = None
     profile_id: Optional[int] = None
     ability_id: Optional[int] = None
+    created_at: datetime = None
 
 class ProfileOut(BaseModel):
     id: int
@@ -58,11 +59,11 @@ class ProfileOut(BaseModel):
     gender: Optional[str] = None
     underlying_diseases: Optional[str] = None
     contact_person: Optional[str] = None
-    contact_person_phone: Optional[str] = None
+    contact_phone: Optional[str] = None
 
 class AbilityOut(BaseModel):
     id: int
-    type
+    type: Optional[str] = None
     career: Optional[str] = None
     other_ability: Optional[str] = None
     vehicle: Optional[bool] = None
