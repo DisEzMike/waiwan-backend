@@ -19,7 +19,7 @@ class Jobs(Base):
     work_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     vehicle: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),  nullable=False)
 
     # ORM relationships
     user = relationship("Users", back_populates="job", uselist=False)

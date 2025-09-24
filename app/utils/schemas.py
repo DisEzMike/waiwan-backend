@@ -96,7 +96,7 @@ class SearchOut(BaseModel):
     
 # ---------- Job ----------
 class JobPayload(BaseModel):
-    id: int
+    id: Optional[int] = None
     status: Optional[int] = None
     user_id: Optional[str] = None
     senior_id: Optional[str] = None
