@@ -8,7 +8,7 @@ from ..services.user import set_online
 from ..utils.deps import get_current_user, get_db
 from ..utils.schemas import AbilityOut, HeartbeatIn, MeResponse, ProfileOut, UserOut
 
-router = APIRouter(prefix="/users", tags=["users"])
+router = APIRouter(prefix="/user", tags=["user"])
 
 @router.get("/me",  response_model=MeResponse)
 def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
@@ -49,4 +49,8 @@ async def heartbeat(
     await set_online(user, payload.lat, payload.lng, PRESENCE_TTL_SECONDS)
 
     return
+
+@router.get("/{user_id}")
+async def get_user(user_id: int):
+    return user_id
 
