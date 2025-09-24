@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel, Field
 
 # ---------- Auth ----------
@@ -42,7 +42,7 @@ class TokenResponse(BaseModel):
 # ---------- Users / Profiles / Abilities ----------
 class UserOut(BaseModel):
     id: int
-    role: str
+    role: Optional[str] = None
     displayname: Optional[str] = None
     profile_id: Optional[int] = None
     ability_id: Optional[int] = None
@@ -51,15 +51,26 @@ class ProfileOut(BaseModel):
     id: int
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    id_card: Optional[str] = None
+    addr_from_id: Optional[str] = None
+    addr_current: Optional[str] = None
     phone: str
     gender: Optional[str] = None
+    underlying_diseases: Optional[str] = None
+    contact_person: Optional[str] = None
+    contact_person_phone: Optional[str] = None
 
 class AbilityOut(BaseModel):
     id: int
+    type
     career: Optional[str] = None
     other_ability: Optional[str] = None
+    vehicle: Optional[bool] = None
+    offsite_work: Optional[bool] = None
+    file_id: Optional[int] = None
+    embedding: Optional[List[float]] = None
 
-class MeResponse(BaseModel):
+class UserResponse(BaseModel):
     user: UserOut
     profile: Optional[ProfileOut] = None
     ability: Optional[AbilityOut] = None
