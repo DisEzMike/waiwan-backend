@@ -37,6 +37,7 @@ class DB:
         from .models.jobs import Jobs, Status
         from .models.reviews import Reviews
         from .models.files import Files
+        from .models.chats import ChatRooms, ChatMessages
         Base.metadata.create_all(bind=self.engine)
 
     @contextlib.contextmanager

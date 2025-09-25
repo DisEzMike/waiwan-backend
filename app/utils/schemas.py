@@ -106,3 +106,47 @@ class JobPayload(BaseModel):
     work_type: Optional[str] = None
     vehicle: Optional[bool] = None
     updated_at: Optional[datetime] = None
+
+# ---------- Chat ----------
+class ChatMessageCreate(BaseModel):
+    message: str = Field(..., description="Message content")
+
+class ChatMessageOut(BaseModel):
+    id: str
+    room_id: str
+    sender_id: str
+    sender_type: str  # "user" or "senior_user"
+    sender_name: Optional[str] = None
+    message: str
+    is_read: bool
+    created_at: datetime
+
+class ChatRoomOut(BaseModel):
+    id: str
+    job_id: int
+    user_id: str
+    senior_id: str
+    user_name: Optional[str] = None
+    senior_name: Optional[str] = None
+    is_active: bool
+    created_at: datetime
+    unread_count: Optional[int] = None
+    last_message: Optional[ChatMessageOut] = None
+
+class ChatRoomWithMessages(ChatRoomOut):
+    messages: List[ChatMessageOut] = []
+
+# ---------- WebSocket Message Types ----------
+class WSMessage(BaseModel):
+    type: str = Field(..., description="Message type: 'message', 'typing', 'mark_read'")
+
+class WSChatMessage(WSMessage):
+    type: str = "message"
+    message: str = Field(..., description="Message content")
+
+class WSTypingIndicator(WSMessage):
+    type: str = "typing"
+    is_typing: bool = Field(..., description="Whether user is typing")
+
+class WSMarkRead(WSMessage):
+    type: str = "mark_read"

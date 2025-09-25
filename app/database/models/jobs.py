@@ -8,7 +8,7 @@ class Jobs(Base):
     __tablename__ = "jobs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
-    status: Mapped[int | None] = mapped_column(Integer, ForeignKey("status.id", ondelete="CASCADE"), default=0, nullable=False)
+    status: Mapped[int | None] = mapped_column(Integer, ForeignKey("status.id", onupdate="CASCADE"), default=0, nullable=False)
     
     user_id: Mapped[str | None] = mapped_column(Text, ForeignKey("users.id", ondelete="CASCADE"))
     senior_id: Mapped[str | None] = mapped_column(Text, ForeignKey("senior_users.id", ondelete="CASCADE"))
@@ -26,6 +26,7 @@ class Jobs(Base):
     senior = relationship("SeniorUsers", back_populates="job", uselist=False)
     review =relationship("Reviews", back_populates="job", uselist=False)
     s = relationship("Status", back_populates="job", uselist=False)
+    chat_room = relationship("ChatRooms", back_populates="job", uselist=False)
     
 class Status(Base):
     __tablename__ = "status"

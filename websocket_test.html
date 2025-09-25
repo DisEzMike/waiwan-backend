@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Chat Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
+        #messageInput { width: 300px; padding: 5px; }
+        button { padding: 5px 10px; margin: 5px; }
+        .message { margin: 5px 0; padding: 5px; background: #f0f0f0; border-radius: 5px; }
+        .my-message { background: #007bff; color: white; }
+        .system-message { background: #ffc107; }
+        .typing { font-style: italic; color: #666; }
+    </style>
+</head>
+<body>
+    <h1>WebSocket Chat Test</h1>
+    
+    <div>
+        <label>JWT Token:</label><br>
+        <input type="text" id="tokenInput" placeholder="Enter your JWT token" style="width: 500px;">
+    </div>
+    <br>
+    
+    <div>
+        <label>Room ID:</label><br>
+        <input type="text" id="roomInput" placeholder="Enter room ID" style="width: 300px;">
+        <button onclick="connect()">Connect</button>
+        <button onclick="disconnect()">Disconnect</button>
+    </div>
+    <br>
+    
+    <div id="status">Status: Disconnected</div>
+    <br>
+    
+    <div id="messages"></div>
+    
+    <div>
+        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+        <button onclick="sendMessage()">Send</button>
+        <button onclick="markAsRead()">Mark as Read</button>
+    </div>
+    
+    <div>
+        <button onclick="startTyping()">Start Typing</button>
+        <button onclick="stopTyping()">Stop Typing</button>
+    </div>
+
+    <script>
+        let ws = null;
+        let typingTimeout = null;
+
+        function connect() {
+            const token = document.getElementById('tokenInput').value;
+            const roomId = document.getElementById('roomInput').value;
+            
+            if (!token || !roomId) {
+                alert('Please enter both token and room ID');
+                return;
+            }
+
+            const wsUrl = `ws://127.0.0.1:8000/chat/ws/${roomId}?token=${encodeURIComponent(token)}`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = function(event) {
+                document.getElementById('status').textContent = 'Status: Connected';
+                addMessage('Connected to room ' + roomId, 'system-message');
+            };
+            
+            ws.onmessage = function(event) {
+                const data = JSON.parse(event.data);
+                console.log('Received:', data);
+                
+                switch(data.type) {
+                    case 'new_message':
+                        const msg = data.message;
+                        addMessage(`${msg.sender_name}: ${msg.message}`, '');
+                        break;
+                    case 'typing_indicator':
+                        if (data.is_typing) {
+                            addMessage(`User ${data.user_id} is typing...`, 'typing');
+                        } else {
+                            removeTypingIndicator(data.user_id);
+                        }
+                        break;
+                    case 'user_online':
+                        addMessage(`User ${data.user_id} came online`, 'system-message');
+                        break;
+                    case 'user_offline':
+                        addMessage(`User ${data.user_id} went offline`, 'system-message');
+                        break;
+                    case 'messages_read':
+                        addMessage(`User ${data.user_id} read messages`, 'system-message');
+                        break;
+                }
+            };
+            
+            ws.onclose = function(event) {
+                document.getElementById('status').textContent = 'Status: Disconnected';
+                addMessage('Disconnected from server', 'system-message');
+            };
+            
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+                addMessage('Connection error', 'system-message');
+            };
+        }
+
+        function disconnect() {
+            if (ws) {
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function sendMessage() {
+            const messageInput = document.getElementById('messageInput');
+            const message = messageInput.value.trim();
+            
+            if (message && ws && ws.readyState === WebSocket.OPEN) {
+                const data = {
+                    type: 'message',
+                    message: message
+                };
+                ws.send(JSON.stringify(data));
+                messageInput.value = '';
+            }
+        }
+
+        function markAsRead() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const data = { type: 'mark_read' };
+                ws.send(JSON.stringify(data));
+            }
+        }
+
+        function startTyping() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const data = { type: 'typing', is_typing: true };
+                ws.send(JSON.stringify(data));
+            }
+        }
+
+        function stopTyping() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const data = { type: 'typing', is_typing: false };
+                ws.send(JSON.stringify(data));
+            }
+        }
+
+        function handleKeyPress(event) {
+            if (event.key === 'Enter') {
+                sendMessage();
+            } else {
+                // Auto typing indicator
+                startTyping();
+                clearTimeout(typingTimeout);
+                typingTimeout = setTimeout(stopTyping, 1000);
+            }
+        }
+
+        function addMessage(text, className) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message ' + className;
+            messageDiv.textContent = `[${new Date().toLocaleTimeString()}] ${text}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+
+        function removeTypingIndicator(userId) {
+            // Simple implementation - in real app you'd track typing indicators properly
+            const messages = document.querySelectorAll('.typing');
+            messages.forEach(msg => {
+                if (msg.textContent.includes(userId)) {
+                    msg.remove();
+                }
+            });
+        }
+    </script>
+</body>
+</html>

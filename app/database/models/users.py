@@ -26,6 +26,7 @@ class Users(Base):
     # ORM relationships (one-to-one แบบ uselist=False)
     profile = relationship("UserProfiles", back_populates="user", uselist=False)
     job = relationship("Jobs", back_populates="user", uselist=True)
+    chat_rooms = relationship("ChatRooms", back_populates="user", uselist=True)
 
 class UserProfiles(Base):
     __tablename__ = "user_profiles"

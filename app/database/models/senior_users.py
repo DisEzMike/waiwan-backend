@@ -30,6 +30,7 @@ class SeniorUsers(Base):
     profile = relationship("SeniorProfiles", back_populates="user", uselist=False)
     ability = relationship("SeniorAbilities", back_populates="user", uselist=False)
     job = relationship("Jobs", back_populates="senior", uselist=True)
+    chat_rooms = relationship("ChatRooms", back_populates="senior", uselist=True)
 
 class SeniorProfiles(Base):
     __tablename__ = "senior_profiles"
