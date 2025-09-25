@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Upload Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .upload-section {
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .file-info {
+            background: #f5f5f5;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            text-align: left;
+        }
+        
+        .error {
+            color: red;
+            background: #ffe6e6;
+            border: 1px solid red;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        .success {
+            color: green;
+            background: #e6ffe6;
+            border: 1px solid green;
+            border-radius: 5px;
+            padding: 10px;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        input[type="file"] {
+            margin: 10px 0;
+        }
+        
+        .auth-section {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        
+        input[type="text"], input[type="password"] {
+            width: 200px;
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+        }
+        
+        .file-list {
+            margin-top: 20px;
+        }
+        
+        .file-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+        }
+        
+        .file-item img {
+            max-height: 50px;
+            max-width: 100px;
+            object-fit: cover;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <h1>File Upload Test</h1>
+    
+    <!-- Authentication Section -->
+    <div class="auth-section">
+        <h3>Authentication</h3>
+        <div>
+            <input type="text" id="phone" placeholder="Phone" value="0915594555">
+            <input type="text" id="otp" placeholder="OTP" value="1234">
+            <select id="role">
+                <option value="user">user</option>
+                <option value="senior_user">senior_user</option>
+            </select>
+            <button onclick="login()">Login</button>
+            <button onclick="logout()">Logout</button>
+        </div>
+        <div id="authStatus"></div>
+    </div>
+    
+    <!-- File Upload Section -->
+    <div class="upload-section">
+        <h3>Upload File</h3>
+        <input type="file" id="fileInput" accept="image/*,.pdf,.txt,.doc,.docx">
+        <br>
+        <label>
+            <input type="checkbox" id="profileImageCheck"> Set as profile image
+        </label>
+        <br>
+        <button onclick="uploadFile()">Upload File</button>
+    </div>
+    
+    <div id="result"></div>
+    
+    <!-- My Files Section -->
+    <div>
+        <h3>My Files</h3>
+        <button onclick="loadMyFiles()">Load My Files</button>
+        <div id="filesList" class="file-list"></div>
+    </div>
+    
+    <script>
+        const API_BASE = 'http://127.0.0.1:8000';
+        let authToken = localStorage.getItem('authToken');
+        
+        // Update auth status display
+        function updateAuthStatus() {
+            const statusDiv = document.getElementById('authStatus');
+            if (authToken) {
+                statusDiv.innerHTML = '<span class="success">✓ Authenticated</span>';
+            } else {
+                statusDiv.innerHTML = '<span class="error">✗ Not authenticated</span>';
+            }
+        }
+        
+        // Login function
+        async function login() {
+            const phone = document.getElementById('phone').value;
+            const otp = document.getElementById('otp').value;
+            const role = document.getElementById('role').value;
+
+            try {
+                
+                const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    method: 'POST',
+                    body: JSON.stringify({
+                        phone,
+                        otp,
+                        role
+                    })
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    authToken = data.access_token;
+                    localStorage.setItem('authToken', authToken);
+                    updateAuthStatus();
+                    showResult('Login successful!', 'success');
+                } else {
+                    showResult('Login failed', 'error');
+                }
+            } catch (error) {
+                showResult(`Login error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Logout function
+        function logout() {
+            authToken = null;
+            localStorage.removeItem('authToken');
+            updateAuthStatus();
+            showResult('Logged out', 'success');
+        }
+        
+        // Upload file function
+        async function uploadFile() {
+            if (!authToken) {
+                showResult('Please login first', 'error');
+                return;
+            }
+            
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                showResult('Please select a file', 'error');
+                return;
+            }
+            
+            const isProfileImage = document.getElementById('profileImageCheck').checked;
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const url = `${API_BASE}/files/upload?is_profile_image=${isProfileImage}`;
+                
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    },
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showResult(`File uploaded successfully!
+                        <div class="file-info">
+                            <strong>File ID:</strong> ${data.id}<br>
+                            <strong>Filename:</strong> ${data.filename}<br>
+                            <strong>Original Name:</strong> ${data.original_filename}<br>
+                            <strong>Size:</strong> ${formatFileSize(data.file_size)}<br>
+                            <strong>Type:</strong> ${data.content_type}<br>
+                            <strong>URL:</strong> <a href="${data.upload_url}" target="_blank">${data.upload_url}</a><br>
+                            <strong>Profile Image:</strong> ${data.is_profile_image ? 'Yes' : 'No'}
+                        </div>`, 'success');
+                    
+                    // Clear the file input
+                    fileInput.value = '';
+                    document.getElementById('profileImageCheck').checked = false;
+                    
+                    // Reload files list if it's visible
+                    if (document.getElementById('filesList').innerHTML) {
+                        loadMyFiles();
+                    }
+                } else {
+                    const error = await response.json();
+                    showResult(`Upload failed: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Upload error: ${error.message}`, 'error');
+            }
+        }
+        
+        // Load user's files
+        async function loadMyFiles() {
+            if (!authToken) {
+                showResult('Please login first', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/files/user/my-files`, {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const files = await response.json();
+                    displayFiles(files);
+                } else {
+                    showResult('Failed to load files', 'error');
+                }
+            } catch (error) {
+                showResult(`Error loading files: ${error.message}`, 'error');
+            }
+        }
+        
+        // Display files list
+        function displayFiles(files) {
+            const filesDiv = document.getElementById('filesList');
+            
+            if (files.length === 0) {
+                filesDiv.innerHTML = '<p>No files uploaded yet.</p>';
+                return;
+            }
+            
+            let html = '';
+            files.forEach(file => {
+                const isImage = file.content_type.startsWith('image/');
+                
+                html += `
+                    <div class="file-item">
+                        <div>
+                            ${isImage ? `<img src="${file.file_url}" alt="${file.original_filename}">` : ''}
+                            <div>
+                                <strong>${file.original_filename}</strong><br>
+                                <small>${formatFileSize(file.file_size)} • ${file.content_type}</small><br>
+                                <small>Uploaded: ${new Date(file.upload_date).toLocaleString()}</small>
+                            </div>
+                        </div>
+                        <div>
+                            <button onclick="viewFile('${file.file_url}')">View</button>
+                            <button onclick="deleteFile(${file.id})" style="background: #dc3545;">Delete</button>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            filesDiv.innerHTML = html;
+        }
+        
+        // Delete file
+        async function deleteFile(fileId) {
+            if (!confirm('Are you sure you want to delete this file?')) {
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/files/${fileId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    showResult('File deleted successfully', 'success');
+                    loadMyFiles(); // Reload the files list
+                } else {
+                    const error = await response.json();
+                    showResult(`Delete failed: ${error.detail}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Delete error: ${error.message}`, 'error');
+            }
+        }
+        
+        // View file
+        function viewFile(fileUrl) {
+            window.open(fileUrl, '_blank');
+        }
+        
+        // Utility functions
+        function showResult(message, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `<div class="${type}">${message}</div>`;
+            
+            // Auto-hide after 10 seconds for success messages
+            if (type === 'success') {
+                setTimeout(() => {
+                    resultDiv.innerHTML = '';
+                }, 10000);
+            }
+        }
+        
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+        
+        // Initialize
+        updateAuthStatus();
+        
+        // Auto-load files on page load if authenticated
+        if (authToken) {
+            loadMyFiles();
+        }
+    </script>
+</body>
+</html>

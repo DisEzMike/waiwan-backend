@@ -150,3 +150,28 @@ class WSTypingIndicator(WSMessage):
 
 class WSMarkRead(WSMessage):
     type: str = "mark_read"
+
+# ---------- File Upload ----------
+class FileUploadResponse(BaseModel):
+    id: int = Field(..., description="File ID")
+    filename: str = Field(..., description="Generated filename")
+    original_filename: str = Field(..., description="Original filename")
+    file_path: str = Field(..., description="File storage path")
+    file_size: int = Field(..., description="File size in bytes")
+    content_type: str = Field(..., description="MIME type")
+    upload_url: str = Field(..., description="URL to access the file")
+    created_at: datetime = Field(..., description="Upload timestamp")
+    is_profile_image: bool = Field(False, description="Whether file is set as profile image")
+
+class FileOut(BaseModel):
+    id: int
+    filename: str
+    original_filename: str
+    file_size: int
+    content_type: str
+    file_url: str = Field(..., description="URL to access the file")
+    upload_date: datetime = Field(..., description="Upload timestamp")
+    is_active: bool
+    
+    class Config:
+        from_attributes = True
