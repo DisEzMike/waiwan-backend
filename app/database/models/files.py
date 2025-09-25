@@ -11,3 +11,6 @@ class Files(Base):
     filename: Mapped[str | None] = mapped_column(Text, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
+    # ORM relationships
+    user_profiles = relationship("UserProfiles", back_populates="profile_image", uselist=True)
+    

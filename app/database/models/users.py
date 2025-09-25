@@ -39,5 +39,7 @@ class UserProfiles(Base):
     last_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str] = mapped_column(Text, unique=True, index=True, nullable=False)
     gender: Mapped[str | None] = mapped_column(Text, nullable=True)
+    profile_image_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True)
 
     user = relationship("Users", back_populates="profile", uselist=False)
+    profile_image = relationship("Files", uselist=False)
