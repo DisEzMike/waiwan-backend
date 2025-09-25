@@ -1,0 +1,36 @@
+# Core FastAPI dependencies
+fastapi==0.117.1
+uvicorn[standard]==0.36.0
+python-multipart==0.0.20
+python-dotenv==1.1.1
+
+# Database dependencies
+SQLAlchemy==2.0.43
+psycopg2-binary==2.9.10
+pgvector==0.4.1
+redis==6.4.0
+
+# Authentication & Security
+PyJWT==2.10.1
+pydantic==2.11.9
+
+# AI & ML dependencies
+sentence-transformers==5.1.1
+transformers==4.56.2
+torch==2.8.0
+scikit-learn==1.7.2
+numpy==2.3.3
+scipy==1.16.2
+
+# File handling
+aiofiles==24.1.0
+Pillow==11.3.0
+
+# Utility libraries
+httpx==0.28.1
+requests==2.32.5
+haversine==2.9.0
+click==8.3.0
+
+# Development dependencies (optional)
+rich==14.1.0
