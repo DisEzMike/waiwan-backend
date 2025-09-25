@@ -1,5 +1,6 @@
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 from ..database.models.jobs import Jobs
@@ -21,6 +22,11 @@ async def create_job(payload: JobPayload, session: Session = Depends(get_db), ct
     payload.user_id = user.id
     payload.updated_at = datetime.now()
     
+    q = session.query(Jobs).where(Jobs.senior_id == payload.senior_id and Jobs.status == 0)
+    rows = q.all()
+    
+    if len(rows) > 1 : raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="Seniors have started job.")
+    
     job = Jobs(
         status=payload.status,
         user_id=payload.user_id,
@@ -41,4 +47,14 @@ async def update_job(payload: JobPayload, session: Session = Depends(get_db), ct
     user, _, _ = ctx
     payload.user_id = user.id
     payload.updated_at = datetime.now()
-    return payload
+
+    data = payload.model_dump(exclude_unset=True, exclude_none=True)
+    
+    stmt = (
+        update(Jobs)
+        .where(Jobs.id == payload.id)
+        .values(**data)
+        .returning(Jobs)
+    )
+    q = session.scalars(stmt).one()
+    return q
