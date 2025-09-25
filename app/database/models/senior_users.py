@@ -49,8 +49,10 @@ class SeniorProfiles(Base):
     contact_phone: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str] = mapped_column(Text, unique=True, index=True, nullable=False)
     gender: Mapped[str | None] = mapped_column(Text, nullable=True)
+    profile_image_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True)
 
     user = relationship("SeniorUsers", back_populates="profile", uselist=False)
+    profile_image = relationship("Files", uselist=False)
 
 class SeniorAbilities(Base):
     __tablename__ = "senior_abilities"
@@ -64,21 +66,7 @@ class SeniorAbilities(Base):
     other_ability: Mapped[str | None] = mapped_column(Text, nullable=True)
     vehicle: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     offsite_work: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
-    # file_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("senior_files.id", ondelete="CASCADE"), nullable=True)
     # embedding vector(384)
     embedding = Column(Vector(384), nullable=True)
 
     user = relationship("SeniorUsers", back_populates="ability", uselist=False)
-    # file = relationship("SeniorFiles", back_populates="ability", uselist=False)
-    
-class SeniorFiles(Base):
-    __tablename__ = "senior_files"
-    __table_args__ = (
-        CheckConstraint("id ~ '^SF[0-9a-f]{8}$'", name="senior_files_id_format_chk"),
-    )
-
-    id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("SF"))
-    filename: Mapped[str] = mapped_column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-    # ability = relationship("SeniorAbilities", back_populates="file", uselist=False)

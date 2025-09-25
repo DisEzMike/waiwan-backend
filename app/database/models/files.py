@@ -13,4 +13,5 @@ class Files(Base):
     
     # ORM relationships
     user_profiles = relationship("UserProfiles", back_populates="profile_image", uselist=True)
+    senior_profiles = relationship("SeniorProfiles", back_populates="profile_image", uselist=True)
     
