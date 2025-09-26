@@ -50,7 +50,7 @@ A comprehensive FastAPI application that connects users with senior citizens for
 1. **Clone the repository**
    ```bash
    git clone <repository-url>
-   cd first_fastapi
+   cd waiwan-backend
    ```
 
 2. **Create virtual environment**
@@ -116,10 +116,10 @@ uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 ```
 
 The API will be available at:
-- **API Documentation**: http://localhost:8000/docs
-- **Alternative Docs**: http://localhost:8000/redoc
-- **Chat Test Page**: http://localhost:8000/chat-test
-- **File Upload Test**: http://localhost:8000/file-test
+- **API Documentation**: http://127.0.0.1:8000/docs
+- **Alternative Docs**: http://127.0.0.1:8000/redoc
+- **Chat Test Page**: http://127.0.0.1:8000/chat-test
+- **File Upload Test**: http://127.0.0.1:8000/file-test
 
 ## 📚 API Endpoints
 
@@ -176,20 +176,20 @@ The application uses environment variables for configuration. See `.env.example`
 
 ### Interactive Test Pages
 1. **Chat System Testing**
-   - Visit: http://localhost:8000/chat-test
+   - Visit: http://127.0.0.1:8000/chat-test
    - Test WebSocket connections, messaging, and real-time features
 
 2. **File Upload Testing**
-   - Visit: http://localhost:8000/file-test
+   - Visit: http://127.0.0.1:8000/file-test
    - Test file uploads, profile images, and file management
 
 ### API Testing
-Use the interactive API documentation at http://localhost:8000/docs to test all endpoints.
+Use the interactive API documentation at http://127.0.0.1:8000/docs to test all endpoints.
 
 ## 🗂️ Project Structure
 
 ```
-first_fastapi/
+waiwan-backend/
 ├── app/
 │   ├── database/
 │   │   ├── models/          # SQLAlchemy models
