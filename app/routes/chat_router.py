@@ -95,6 +95,7 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             message_type = message_data.get("type", "message")
             
             if message_type == "message":
+                """{"type": "message", "message": str}"""
                 # Save message to database
                 with DBInstance.session() as session:
                     message_content = message_data.get("message", "").strip()
@@ -129,11 +130,13 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                         await manager.broadcast_to_room(room_id, broadcast_message)
             
             elif message_type == "typing":
+                """{"type": "typing", "is_typing": bool}"""
                 # Handle typing indicator
                 is_typing = message_data.get("is_typing", False)
                 await manager.send_typing_indicator(room_id, user_id, is_typing)
             
             elif message_type == "mark_read":
+                """{"type": "mark_read"}"""
                 # Mark messages as read
                 with DBInstance.session() as session:
                     if user_role == "user":
