@@ -2,6 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from scipy import stats
 from sqlalchemy import select
 
+from ..database.redis import get_auth_otp, set_auth_otp
+
 from ..utils.embedder import embed_query
 
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
@@ -16,6 +18,13 @@ FIXED_OTP = "1234"
 
 @router.post("/request-otp")
 async def request_otp(payload: RequestOTP):
+    otp = FIXED_OTP  # ใน production ต้องสร้าง OTP แบบสุ่มและส่งทาง SMS
+    
+    otp_exists = await get_auth_otp(payload.phone)
+    if otp_exists is None:
+        # บันทึก OTP ใน Redis พร้อม TTL (5 นาที)
+        await set_auth_otp(payload.phone, otp)
+    
     return {"message": "OTP sent"}
 
 @router.post("/verify-otp")
