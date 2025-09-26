@@ -46,7 +46,50 @@ def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
             offsite_work=ability.offsite_work 
         ) if ability else None)
     )
+
+@router.patch("")
+async def update_me(
+    payload: UserResponse,
+    ctx = Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Update current user, profile, ability"""
+    user, profile, ability = ctx
+    if payload.user:
+        if payload.user.displayname:
+            user.displayname = payload.user.displayname
+        session.add(user)
     
+    if payload.profile:
+        db_profile = None
+        if user.role == "user":
+            db_profile = session.get(SeniorProfiles, user.profile_id)
+        elif user.role == "senior_user":
+            db_profile = session.get(SeniorProfiles, user.profile_id)
+        
+        if db_profile:
+            if payload.profile.first_name:
+                db_profile.first_name = payload.profile.first_name
+            if payload.profile.last_name:
+                db_profile.last_name = payload.profile.last_name
+            if user.role == "senior_user":
+                if payload.profile.id_card:
+                    db_profile.id_card = payload.profile.id_card
+                if payload.profile.addr_from_id:
+                    db_profile.addr_from_id = payload.profile.addr_from_id
+                if payload.profile.addr_current:
+                    db_profile.addr_current = payload.profile.addr_current
+                if payload.profile.underlying_diseases:
+                    db_profile.underlying_diseases = payload.profile.underlying_diseases
+                if payload.profile.contact_person:
+                    db_profile.contact_person = payload.profile.contact_person
+                if payload.profile.contact_phone:
+                    db_profile.contact_phone = payload.profile.contact_phone
+                if payload.profile.gender:
+                    db_profile.gender = payload.profile.gender
+            if payload.profile.phone:
+                db_profile.phone = payload.profile.phone
+
 @router.get("/{user_id}")
 async def get_user(user_id: str, ctx = Depends(get_current_user), session: Session = Depends(get_db)):
     user: SeniorUsers | None = getUser_by_id(user_id, session)
