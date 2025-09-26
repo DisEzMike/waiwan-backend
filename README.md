@@ -130,15 +130,14 @@ The API will be available at:
 
 ### Users
 - `GET /users/me` - Get current user profile
-- `GET /users/seniors/{senior_id}` - Get senior user details
-- `GET /users/locations` - Get user locations
-- `POST /users/heartbeat` - Update user location
+- `GET /users/{user_id}` - Get user by id
+- `POST /users/set-online` - Set user to online
 
 ### Search & Jobs
 - `POST /search` - Semantic search for jobs/seniors
 - `GET /jobs` - List jobs
-- `POST /jobs` - Create/update job
-- `DELETE /jobs/{job_id}` - Delete job
+- `POST /jobs` - Create job
+- `PATCH /jobs` - update job
 
 ### Real-time Chat
 - `GET /chat/rooms` - Get user's chat rooms
