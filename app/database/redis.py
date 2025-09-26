@@ -34,6 +34,9 @@ def _presence_key(pid: str) -> str:
 def _loc_key(pid: str) -> str:
     return f"senior:{pid}:loc"
 
+def _auth_key(phone: str) -> str:
+    return f"auth:{phone}:otp"
+
 async def set_presence(provider_id: str, ttl: int) -> None:
     """
     เก็บสถานะออนไลน์ (presence) ไว้ใน Redis พร้อม TTL
@@ -124,3 +127,19 @@ async def get_locations_batch(pids: List[str]) -> Dict[str, Dict]:
             except Exception:
                 continue
     return res
+
+# -------- Auth --------
+async def set_auth_otp(pid: str, otp: str, ttl: int = 300) -> None:
+    """
+    เก็บ OTP สำหรับยืนยันตัวตนของ provider
+    """
+    r = get_redis()
+    await r.setex(_auth_key(pid), ttl, otp)
+
+async def get_auth_otp(pid: str) -> Optional[str]:
+    """
+    ดึง OTP สำหรับยืนยันตัวตนของ provider
+    """
+    r = get_redis()
+    otp = await r.get(_auth_key(pid))
+    return otp
