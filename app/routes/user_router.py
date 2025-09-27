@@ -4,6 +4,7 @@ from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
+from ..database.models.users import UserProfiles, Users
 
 from ..services.user import getAbility_by_id, getProfile_by_id, getUser_by_id, set_online
 
@@ -28,19 +29,19 @@ def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
             id=profile.id,
             first_name=profile.first_name,
             last_name=profile.last_name,
-            id_card=profile.id_card if user.role == "senior_user" else None,
-            addr_from_id=profile.addr_from_id if user.role == "senior_user" else None,
-            addr_current=profile.addr_current if user.role == "senior_user" else None,
+            id_card=profile.id_card,
+            id_address=profile.id_address,
+            current_address=profile.current_address,
             phone=profile.phone,
             gender=profile.gender,
-            underlying_diseases=profile.underlying_diseases if user.role == "senior_user" else None,
+            chronic_diseases=profile.chronic_diseases if user.role == "senior_user" else None,
             contact_person=profile.contact_person if user.role == "senior_user" else None,
             contact_phone=profile.contact_phone if user.role == "senior_user" else None,
         ),
         ability=(AbilityOut(
             id=ability.id,
             type=ability.type,
-            career=ability.career,
+            work_experience=ability.work_experience,
             other_ability=ability.other_ability,
             vehicle=ability.vehicle,
             offsite_work=ability.offsite_work 
@@ -79,8 +80,8 @@ async def update_me(
                     db_profile.addr_from_id = payload.profile.addr_from_id
                 if payload.profile.addr_current:
                     db_profile.addr_current = payload.profile.addr_current
-                if payload.profile.underlying_diseases:
-                    db_profile.underlying_diseases = payload.profile.underlying_diseases
+                if payload.profile.chronic_diseases:
+                    db_profile.chronic_diseases = payload.profile.chronic_diseases
                 if payload.profile.contact_person:
                     db_profile.contact_person = payload.profile.contact_person
                 if payload.profile.contact_phone:
@@ -110,18 +111,18 @@ async def get_user(user_id: str, ctx = Depends(get_current_user), session: Sessi
             first_name=profile.first_name,
             last_name=profile.last_name,
             id_card=profile.id_card,
-            addr_from_id=profile.addr_from_id,
-            addr_current=profile.addr_current,
+            id_address=profile.id_address,
+            current_address=profile.current_address,
             phone=profile.phone,
             gender=profile.gender,
-            underlying_diseases=profile.underlying_diseases,
+            chronic_diseases=profile.chronic_diseases,
             contact_person=profile.contact_person,
             contact_phone=profile.contact_phone,
         ),
         ability=AbilityOut(
             id=ability.id,
             type=ability.type,
-            career=ability.career,
+            work_experience=ability.work_experience,
             other_ability=ability.other_ability,
             vehicle=ability.vehicle,
             offsite_work=ability.offsite_work 

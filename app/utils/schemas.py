@@ -2,35 +2,45 @@ from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+
+from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
+from ..database.models.users import UserProfiles, Users
 # ---------- Auth ----------
 class RequestOTP(BaseModel):
     phone: str
+
+class RequestOTPResponse(BaseModel):
+    message: str
 
 class VerifyOTP(BaseModel):
     phone: str
     otp: str = Field(..., description="fixed 1234")
     role: str = Field(..., description='"user" | "senior_user"')
 
+class VerifyOTPResponse(BaseModel):
+    is_new: bool
+    auth_code: str  # ใช้ในการสร้าง user ต่อ
+
+class CreateUserPayload(BaseModel):
     # สมัครสมาชิกครั้งแรก (optional)
     displayname: Optional[str] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     id_card: Optional[str] = None
-    addr_form_id: Optional[str] = None
-    addr_current: Optional[str] = None
+    id_address: Optional[str] = None
+    current_address: Optional[str] = None
     underlying_disease: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
     gender: Optional[str] = None
-    
     type: Optional[str] = None
-    career: Optional[str] = None
+    work_experience: Optional[str] = None
     other_ability: Optional[str] = None
     vihecle: Optional[bool] = None
     offsite_work: Optional[bool] = None
     # file_id: Optional[int] = None
     # embedding: Optional[List[float]] = None  # ต้องยาว 384 ถ้าส่งมา
-
+    
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -53,18 +63,18 @@ class ProfileOut(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     id_card: Optional[str] = None
-    addr_from_id: Optional[str] = None
-    addr_current: Optional[str] = None
+    id_address: Optional[str] = None
+    current_address: Optional[str] = None
     phone: str
     gender: Optional[str] = None
-    underlying_diseases: Optional[str] = None
+    chronic_diseases: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
 
 class AbilityOut(BaseModel):
     id: str
     type: Optional[str] = None
-    career: Optional[str] = None
+    work_experience: Optional[str] = None
     other_ability: Optional[str] = None
     vehicle: Optional[bool] = None
     offsite_work: Optional[bool] = None

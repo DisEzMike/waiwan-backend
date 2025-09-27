@@ -19,7 +19,7 @@ class Users(Base):
     displayname: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Foreign Keys (Integer)
-    profile_id: Mapped[str | None] = mapped_column(Text, ForeignKey("user_profiles.id", ondelete="CASCADE"))
+    profile_id: Mapped[str | None] = mapped_column(Text, ForeignKey("user_profiles.id", ondelete="SET NULL"), nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
@@ -37,6 +37,9 @@ class UserProfiles(Base):
     id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("UP"))
     first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_name: Mapped[str | None] = mapped_column(Text, nullable=True)
+    id_card: Mapped[str | None] = mapped_column(Text, nullable=True)
+    id_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    current_address: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str] = mapped_column(Text, unique=True, index=True, nullable=False)
     gender: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_image_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True)

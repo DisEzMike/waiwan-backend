@@ -37,6 +37,9 @@ def _loc_key(pid: str) -> str:
 def _auth_key(phone: str) -> str:
     return f"auth:{phone}:otp"
 
+def _auth_code_key(code: str) -> str:
+    return f"auth_code:{code}:data"
+
 async def set_presence(provider_id: str, ttl: int) -> None:
     """
     เก็บสถานะออนไลน์ (presence) ไว้ใน Redis พร้อม TTL
@@ -143,3 +146,24 @@ async def get_auth_otp(pid: str) -> Optional[str]:
     r = get_redis()
     otp = await r.get(_auth_key(pid))
     return otp
+
+async def set_auth_code_data(code: str, data: dict, ttl: int = 600) -> None:
+    """
+    เก็บข้อมูลชั่วคราวที่เกี่ยวข้องกับ auth_code
+    """
+    r = get_redis()
+    await r.setex(_auth_code_key(code), ttl, json.dumps(data))
+    
+async def get_auth_code_data(code: str) -> Optional[dict]:
+    """
+    ดึงข้อมูลชั่วคราวที่เกี่ยวข้องกับ auth_code
+    """
+    r = get_redis()
+    raw = await r.get(_auth_code_key(code))
+    if not raw:
+        return None
+    try:
+        obj = json.loads(raw)
+        return obj
+    except Exception:
+        return None
