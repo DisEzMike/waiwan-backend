@@ -4,6 +4,8 @@ from fastapi.concurrency import run_in_threadpool
 from numpy import sort
 from sqlalchemy.orm import Session
 
+from app.utils.file_upload import get_file_url
+
 from ..utils.score import setScore
 
 from ..services.user import getUser_by_ability_id, getUser_by_id
@@ -107,6 +109,9 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
     rows: list[SeniorAbilities] = q.all()
     for ability, usr in zip(rows, filterd_lst):
         profile: SeniorProfiles = ability.user.profile
+        profile_image = profile.profile_image
+        if profile_image:
+            profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
         data = {
             "id": usr['id'],
             "name": profile.first_name + " " + profile.last_name,
