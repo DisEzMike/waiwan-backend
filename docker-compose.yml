@@ -7,14 +7,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PG_HOST=postgres
-      - PG_PORT=5432
-      - PG_USER=waiwan_admin
-      - PG_PASSWORD=1234
-      - PG_DBNAME=waiwan_db
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - JWT_SECRET=your-super-secret-key-change-in-production
+      env_file: .env
     volumes:
       - ./uploads:/app/uploads
     depends_on:

@@ -3,6 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
+from ..utils.file_upload import get_file_url
+
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
 from ..database.models.users import UserProfiles, Users
 
@@ -14,8 +16,11 @@ from ..utils.schemas import AbilityOut, HeartbeatIn, UserResponse, ProfileOut, U
 router = APIRouter(prefix="/user", tags=["user"])
 
 @router.get("/me",  response_model=UserResponse)
-def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
+async def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
     user, profile, ability = ctx
+    profile_image = profile.profile_image
+    if profile_image:
+        profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
     return UserResponse(
         user=UserOut(
             id=user.id,
@@ -37,6 +42,7 @@ def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
             chronic_diseases=profile.chronic_diseases if user.role == "senior_user" else None,
             contact_person=profile.contact_person if user.role == "senior_user" else None,
             contact_phone=profile.contact_phone if user.role == "senior_user" else None,
+            image_url=profile.image_url if profile.profile_image else None
         ),
         ability=(AbilityOut(
             id=ability.id,
@@ -97,6 +103,9 @@ async def get_user(user_id: str, ctx = Depends(get_current_user), session: Sessi
     if user is None : raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     profile: SeniorProfiles = user.profile
     ability: SeniorAbilities = user.ability
+    profile_image = profile.profile_image
+    if profile_image:
+        profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
     return UserResponse(
         user=UserOut(
             id=user.id,
@@ -118,6 +127,7 @@ async def get_user(user_id: str, ctx = Depends(get_current_user), session: Sessi
             chronic_diseases=profile.chronic_diseases,
             contact_person=profile.contact_person,
             contact_phone=profile.contact_phone,
+            image_url=profile.image_url
         ),
         ability=AbilityOut(
             id=ability.id,

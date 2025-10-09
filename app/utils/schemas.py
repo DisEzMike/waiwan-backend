@@ -21,25 +21,32 @@ class VerifyOTPResponse(BaseModel):
     is_new: bool
     auth_code: str  # ใช้ในการสร้าง user ต่อ
 
-class CreateUserPayload(BaseModel):
-    # สมัครสมาชิกครั้งแรก (optional)
-    displayname: Optional[str] = None
+class ProfilePayload(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     id_card: Optional[str] = None
     id_address: Optional[str] = None
     current_address: Optional[str] = None
-    underlying_disease: Optional[str] = None
+    phone: str
+    gender: Optional[str] = None
+    chronic_diseases: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
-    gender: Optional[str] = None
+    image_url: Optional[str] = None
+
+class AbilityPayload(BaseModel):
     type: Optional[str] = None
     work_experience: Optional[str] = None
     other_ability: Optional[str] = None
-    vihecle: Optional[bool] = None
+    vehicle: Optional[bool] = None
     offsite_work: Optional[bool] = None
-    # file_id: Optional[int] = None
-    # embedding: Optional[List[float]] = None  # ต้องยาว 384 ถ้าส่งมา
+    file_id: Optional[int] = None
+    embedding: Optional[List[float]] = None  # ต้องยาว 384 ถ้าส่งมา
+class CreateUserPayload(BaseModel):
+    # สมัครสมาชิกครั้งแรก (optional)
+    displayname: Optional[str] = None
+    profile: Optional[ProfilePayload] = None
+    ability: Optional[AbilityPayload] = None
     
 class TokenResponse(BaseModel):
     access_token: str
@@ -70,6 +77,7 @@ class ProfileOut(BaseModel):
     chronic_diseases: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
+    image_url: Optional[str] = None
 
 class AbilityOut(BaseModel):
     id: str

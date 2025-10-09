@@ -82,48 +82,35 @@ async def create_user(auth_code: str, payload: CreateUserPayload, session=Depend
             if user is None:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User not found")
     else:
-        data = payload.model_dump(exclude_unset=True, exclude_none=True)
         if role == "user":
-            profile = UserProfiles(**data, phone=phone)
+            data = payload.profile.model_dump(exclude_unset=True, exclude_none=True)
+            profile = UserProfiles(**data)
             session.add(profile)
             session.flush()
             
             user = Users(
-                displayname=payload.displayname or f"{payload.first_name} {payload.last_name}",
+                displayname=f"{payload.profile.first_name} {payload.profile.last_name}",
                 profile_id=profile.id
             )
             session.add(user)
             session.flush()
         elif role == "senior_user":
-            profile = SeniorProfiles(
-                first_name=payload.first_name,
-                last_name=payload.last_name,
-                id_card=payload.id_card,
-                id_address=payload.id_address,
-                current_address=payload.current_address,
-                chronic_diseases=payload.underlying_disease,
-                contact_person=payload.contact_person,
-                contact_phone=payload.contact_phone,
-                phone=phone,
-                gender=payload.gender
-            )
+            data = payload.profile.model_dump(exclude_unset=True, exclude_none=True)
+            profile = SeniorProfiles(**data)
             session.add(profile)
             session.flush()
             
+            data = payload.ability.model_dump(exclude_unset=True, exclude_none=True)
             ability = SeniorAbilities(
-                type=payload.type,
-                work_experience=payload.work_experience,
-                other_ability=payload.other_ability,
-                vehicle=payload.vihecle,
-                offsite_work=payload.offsite_work,
-                embedding=embed_query(" ".join([payload.work_experience or "", payload.other_ability or ""]))
+                **data,
+                embedding=embed_query(" ".join([payload.ability.work_experience or "", payload.ability.other_ability or ""]))
                 # file_id=payload.file_id,
             )
             session.add(ability)
             session.flush()
             
             user = SeniorUsers(
-                displayname=getattr(payload, 'displayname', f"{payload.first_name} {payload.last_name}"),
+                displayname=f"{payload.profile.first_name} {payload.profile.last_name}",
                 profile_id=profile.id,
                 ability_id=ability.id
             )
