@@ -68,7 +68,7 @@ async def Search(q: str, lat: float, lng: float, top_k: int = 20, radius: int = 
             "offsite_work": ability.offsite_work,
             "chronic_diseases": profile.chronic_diseases,
             "distance": round(dist),
-            "image_url": f"http://192.168.0.39:8001/files/images/8c2270c972b225e9.jpg"
+            "image_url": profile.image_url if profile.profile_image else None
         }
         out.append(data)
     def over05(x):
@@ -118,7 +118,7 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
             "offsite_work": ability.offsite_work,
             "chronic_diseases": profile.chronic_diseases,
             "distance": round(haversine((lat,lng), (usr['lat'], usr['lng']), unit="m")),
-            "image_url": f"http://192.168.0.39:8001/files/images/8c2270c972b225e9.jpg"
+            "image_url": profile.image_url if profile.profile_image else None
         }
         out.append(data)
     out = sorted(out, key=lambda x: x['distance'])
