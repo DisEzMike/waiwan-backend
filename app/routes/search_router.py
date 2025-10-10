@@ -143,7 +143,6 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
             'score': None,
             'distance': round(haversine((lat,lng), (usr['lat'], usr['lng']), unit="m"))
         }
-        print(data)
         out.append(data)
     out = sorted(out, key=lambda x: x['distance'])
     return SearchOut(count=len(out), list=out)
