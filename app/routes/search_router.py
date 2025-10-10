@@ -48,6 +48,10 @@ async def Search(q: str, lat: float, lng: float, top_k: int = 20, radius: int = 
     for ability,sim in rows:
         user: SeniorUsers = ability.user
         profile: SeniorProfiles = user.profile
+        profile_image = profile.profile_image
+        if profile_image:
+            profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
+        
         location = await get_loc(user.id)
         
         if location is None:
@@ -58,10 +62,24 @@ async def Search(q: str, lat: float, lng: float, top_k: int = 20, radius: int = 
         dist = haversine((lat, lng),(location['lat'], location['lng']), unit="m")
         
         score = setScore(sim, dist, 0.7, radius)
+        
+        # Convert SQLAlchemy models to dictionaries
+        user_dict = {column.name: getattr(user, column.name) for column in user.__table__.columns}
+        profile_dict = {column.name: getattr(profile, column.name) for column in profile.__table__.columns}
+        profile_dict['image_url'] = profile.image_url if profile.profile_image else None
+        
+        # Convert ability to dict and handle embedding field
+        ability_dict = {}
+        for column in ability.__table__.columns:
+            if column.name == 'embedding':
+                # Skip embedding field to avoid numpy array serialization issues
+                continue
+            ability_dict[column.name] = getattr(ability, column.name)
+        
         data = {
-            'user': user,
-            'profile': {**profile, 'image_url': profile.image_url if profile.profile_image else None},
-            'ability': ability,
+            'user': user_dict,
+            'profile': profile_dict,
+            'ability': ability_dict,
             'score': score,
             'distance': round(dist)
         }
@@ -101,17 +119,31 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
     q = session.query(SeniorAbilities).where(SeniorAbilities.id.in_(ids))
     rows: list[SeniorAbilities] = q.all()
     for ability, usr in zip(rows, filterd_lst):
-        profile: SeniorProfiles = ability.user.profile
+        user: SeniorUsers = ability.user
+        profile: SeniorProfiles = user.profile
         profile_image = profile.profile_image
         if profile_image:
             profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
+        
+        # Convert SQLAlchemy models to dictionaries
+        user_dict = {column.name: getattr(user, column.name) for column in user.__table__.columns}
+        profile_dict = {column.name: getattr(profile, column.name) for column in profile.__table__.columns}
+        profile_dict['image_url'] = profile.image_url if profile.profile_image else None
+        
+        ability_dict = {}
+        for column in ability.__table__.columns:
+            if column.name == 'embedding':
+                continue
+            ability_dict[column.name] = getattr(ability, column.name)
+        
         data = {
-            'user': ability.user,
-            'profile': {**profile, 'image_url': profile.image_url if profile.profile_image else None},
-            'ability': ability,
+            'user': user_dict,
+            'profile': profile_dict,
+            'ability': ability_dict,
             'score': None,
             'distance': round(haversine((lat,lng), (usr['lat'], usr['lng']), unit="m"))
         }
+        print(data)
         out.append(data)
     out = sorted(out, key=lambda x: x['distance'])
     return SearchOut(count=len(out), list=out)
