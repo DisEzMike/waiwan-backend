@@ -26,6 +26,9 @@ async def auto_create_chat_room(job: Jobs, session: Session):
             )
             session.add(chat_room)
             session.flush()
+            
+            return chat_room
+        return existing_room
 
 @router.get("/{job_id}")
 async def get_job(job_id: int, session: Session = Depends(get_db), ctx = Depends(get_current_user)):
@@ -58,7 +61,9 @@ async def create_job(payload: JobPayload, session: Session = Depends(get_db), ct
     session.add(job)
     session.flush()
 
-    return job
+    chatroom = await auto_create_chat_room(job, session)
+
+    return {'job': job, 'chatroom_id': chatroom.id if chatroom else None}
 
 @router.patch("")
 async def update_job(payload: JobPayload, session: Session = Depends(get_db), ctx = Depends(get_current_user)):
@@ -77,6 +82,6 @@ async def update_job(payload: JobPayload, session: Session = Depends(get_db), ct
     updated_job = session.scalars(stmt).one()
     
     # Auto-create chat room if status becomes 1
-    await auto_create_chat_room(updated_job, session)
+    chatroom = await auto_create_chat_room(updated_job, session)
     
-    return updated_job
+    return {'job': updated_job, 'chatroom_id': chatroom.id if chatroom else None}

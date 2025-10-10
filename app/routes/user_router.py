@@ -8,7 +8,7 @@ from ..utils.file_upload import get_file_url
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
 from ..database.models.users import UserProfiles, Users
 
-from ..services.user import getAbility_by_id, getProfile_by_id, getUser_by_id, set_online
+from ..services.user import getAbility_by_id, getProfile_by_id, getSenior_by_id, getUser_by_id, set_online
 
 from ..utils.deps import get_current_user, get_db
 from ..utils.schemas import AbilityOut, HeartbeatIn, UserResponse, ProfileOut, UserOut
@@ -99,10 +99,13 @@ async def update_me(
 
 @router.get("/{user_id}")
 async def get_user(user_id: str, ctx = Depends(get_current_user), session: Session = Depends(get_db)):
-    user: SeniorUsers | None = getUser_by_id(user_id, session)
+    user: SeniorUsers | Users | None = getSenior_by_id(user_id, session)
+    ability: SeniorAbilities | None = None
+    if user:
+        ability: SeniorAbilities | None = user.ability
+    if user is None : user = getUser_by_id(user_id, session)
     if user is None : raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     profile: SeniorProfiles = user.profile
-    ability: SeniorAbilities = user.ability
     profile_image = profile.profile_image
     if profile_image:
         profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
@@ -112,7 +115,7 @@ async def get_user(user_id: str, ctx = Depends(get_current_user), session: Sessi
             role="senior_user",
             displayname=user.displayname,
             profile_id=user.profile_id,
-            ability_id=user.ability_id,
+            ability_id=user.ability_id if ability else None,
             created_at=user.created_at
         ),
         profile=ProfileOut(
@@ -124,19 +127,19 @@ async def get_user(user_id: str, ctx = Depends(get_current_user), session: Sessi
             current_address=profile.current_address,
             phone=profile.phone,
             gender=profile.gender,
-            chronic_diseases=profile.chronic_diseases,
-            contact_person=profile.contact_person,
-            contact_phone=profile.contact_phone,
-            image_url=profile.image_url
+            chronic_diseases=profile.chronic_diseases if ability else None,
+            contact_person=profile.contact_person if ability else None,
+            contact_phone=profile.contact_phone if ability else None,
+            image_url=profile.image_url if profile.profile_image else None
         ),
-        ability=AbilityOut(
+        ability=(AbilityOut(
             id=ability.id,
             type=ability.type,
             work_experience=ability.work_experience,
             other_ability=ability.other_ability,
             vehicle=ability.vehicle,
             offsite_work=ability.offsite_work 
-        )
+        ) if ability else None)
     )
 
 @router.post("/set-online", status_code=status.HTTP_204_NO_CONTENT)

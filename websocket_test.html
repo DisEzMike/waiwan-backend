@@ -59,7 +59,7 @@
                 return;
             }
 
-            const wsUrl = `ws://127.0.0.1:8000/chat/ws/${roomId}?token=${encodeURIComponent(token)}`;
+            const wsUrl = `ws://127.0.0.1:8001/chat/ws/${roomId}?token=${encodeURIComponent(token)}`;
             
             ws = new WebSocket(wsUrl);
             
