@@ -59,18 +59,11 @@ async def Search(q: str, lat: float, lng: float, top_k: int = 20, radius: int = 
         
         score = setScore(sim, dist, 0.7, radius)
         data = {
-            "id": user.id,
-            "score": score,
-            "name": profile.first_name + " " + profile.last_name,
-            "type": ability.type,
-            "phone": profile.phone,
-            "work_experience": ability.work_experience,
-            "other_ability": ability.other_ability,
-            "vehicle": ability.vehicle,
-            "offsite_work": ability.offsite_work,
-            "chronic_diseases": profile.chronic_diseases,
-            "distance": round(dist),
-            "image_url": profile.image_url if profile.profile_image else None
+            'user': user,
+            'profile': {**profile, 'image_url': profile.image_url if profile.profile_image else None},
+            'ability': ability,
+            'score': score,
+            'distance': round(dist)
         }
         out.append(data)
     def over05(x):
@@ -113,17 +106,11 @@ async def search_nearby(lat: float, lng: float, range: int = 10000,ctx = Depends
         if profile_image:
             profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
         data = {
-            "id": usr['id'],
-            "name": profile.first_name + " " + profile.last_name,
-            "type": ability.type,
-            "phone": profile.phone,
-            "work_experience": ability.work_experience,
-            "other_ability": ability.other_ability,
-            "vehicle": ability.vehicle,
-            "offsite_work": ability.offsite_work,
-            "chronic_diseases": profile.chronic_diseases,
-            "distance": round(haversine((lat,lng), (usr['lat'], usr['lng']), unit="m")),
-            "image_url": profile.image_url if profile.profile_image else None
+            'user': ability.user,
+            'profile': {**profile, 'image_url': profile.image_url if profile.profile_image else None},
+            'ability': ability,
+            'score': None,
+            'distance': round(haversine((lat,lng), (usr['lat'], usr['lng']), unit="m"))
         }
         out.append(data)
     out = sorted(out, key=lambda x: x['distance'])
