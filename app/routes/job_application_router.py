@@ -55,10 +55,14 @@ async def get_my_jobs(
     """Get all jobs created by current user"""
     user, _, _ = ctx
     if user.role != "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Only users can view their jobs"
+        job_history = JobApplicationService.get_job_history_for_senior(
+        session=session,
+        senior_id=user.id
         )
+        return {
+            "count": len(job_history),
+            "jobs": job_history
+        }
     
     jobs = session.query(Jobs).filter(Jobs.user_id == user.id).all()
     
