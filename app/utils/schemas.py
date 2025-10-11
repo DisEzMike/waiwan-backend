@@ -143,9 +143,8 @@ class ChatRoomOut(BaseModel):
     id: str
     job_id: int
     user_id: str
-    senior_id: str
     user_name: Optional[str] = None
-    senior_name: Optional[str] = None
+    seniors: List[dict] = []  # List of accepted seniors with their info
     is_active: bool
     created_at: datetime
     unread_count: Optional[int] = None

@@ -74,60 +74,98 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
             await websocket.close(code=4004, reason="Room not found")
             return
         
-        if room.user_id != user.id and room.senior_id != user.id:
-            await websocket.close(code=4003, reason="Access denied")
+        # Check access permissions based on role
+        has_access = False
+        if user_role == "user" and room.user_id == user.id:
+            # User who created the job has access
+            has_access = True
+        elif user_role == "senior_user":
+            # Senior must have accepted the job to access chat
+            from ..services.job_application import JobApplicationService
+            has_access = JobApplicationService.can_access_chatroom(session, room.id, user.id)
+        
+        if not has_access:
+            await websocket.close(code=4003, reason="Access denied - You must accept the job to join this chat")
             return
         
         if not room.is_active:
             await websocket.close(code=4003, reason="Room is not active")
             return
     
-    # Connect user to room
+    # Connect user to room (this will accept the WebSocket connection)
     await manager.connect(websocket, user_id, room_id)
     
     try:
         while True:
             # Receive message from WebSocket
             data = await websocket.receive_text()
-            message_data = json.loads(data)
+            
+            try:
+                message_data = json.loads(data)
+            except json.JSONDecodeError:
+                # Send error message back to client
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": "Invalid JSON format"
+                }))
+                continue
             
             # Handle different message types
             message_type = message_data.get("type", "message")
             
             if message_type == "message":
                 """{"type": "message", "message": str}"""
+                # Re-validate access for seniors (in case job status changed)
+                if user_role == "senior_user":
+                    with DBInstance.session() as session:
+                        from ..services.job_application import JobApplicationService
+                        if not JobApplicationService.can_access_chatroom(session, room_id, user_id):
+                            await websocket.close(code=4003, reason="Access revoked - Job application status changed")
+                            return
+                
                 # Save message to database
                 with DBInstance.session() as session:
                     message_content = message_data.get("message", "").strip()
                     if message_content:
-                        # Create message record
-                        new_message = ChatMessages(
-                            room_id=room_id,
-                            sender_id=user_id,
-                            sender_type=user_role,
-                            message=message_content,
-                            is_read=False
-                        )
-                        session.add(new_message)
-                        session.flush()
-                        
-                        # Prepare broadcast message
-                        broadcast_message = {
-                            "type": "new_message",
-                            "message": {
-                                "id": new_message.id,
-                                "room_id": new_message.room_id,
-                                "sender_id": new_message.sender_id,
-                                "sender_type": new_message.sender_type,
-                                "sender_name": user_displayname,
-                                "message": new_message.message,
-                                "is_read": new_message.is_read,
-                                "created_at": new_message.created_at.isoformat()
+                        try:
+                            # Create message record
+                            new_message = ChatMessages(
+                                room_id=room_id,
+                                sender_id=user_id,
+                                sender_type=user_role,
+                                message=message_content,
+                                is_read=False
+                            )
+                            session.add(new_message)
+                            session.flush()
+                            
+                            # Prepare broadcast message
+                            broadcast_message = {
+                                "type": "new_message",
+                                "message": {
+                                    "id": new_message.id,
+                                    "room_id": new_message.room_id,
+                                    "sender_id": new_message.sender_id,
+                                    "sender_type": new_message.sender_type,
+                                    "sender_name": user_displayname,
+                                    "message": new_message.message,
+                                    "is_read": new_message.is_read,
+                                    "created_at": new_message.created_at.isoformat()
+                                }
                             }
-                        }
-                        
-                        # Broadcast to all participants in room
-                        await manager.broadcast_to_room(room_id, broadcast_message)
+                            
+                            # Commit before broadcasting
+                            session.commit()
+                            
+                            # Broadcast to all participants in room
+                            await manager.broadcast_to_room(room_id, broadcast_message)
+                        except Exception as db_error:
+                            session.rollback()
+                            logger.error(f"Database error saving message: {db_error}")
+                            await websocket.send_text(json.dumps({
+                                "type": "error",
+                                "message": "Failed to save message"
+                            }))
             
             elif message_type == "typing":
                 """{"type": "typing", "is_typing": bool}"""
@@ -139,33 +177,48 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
                 """{"type": "mark_read"}"""
                 # Mark messages as read
                 with DBInstance.session() as session:
-                    if user_role == "user":
-                        session.execute(
-                            ChatMessages.__table__.update()
-                            .where(and_(
-                                ChatMessages.room_id == room_id,
-                                ChatMessages.sender_type == "senior_user",
-                                ChatMessages.is_read == False
-                            ))
-                            .values(is_read=True)
-                        )
-                    elif user_role == "senior_user":
-                        session.execute(
-                            ChatMessages.__table__.update()
-                            .where(and_(
-                                ChatMessages.room_id == room_id,
-                                ChatMessages.sender_type == "user",
-                                ChatMessages.is_read == False
-                            ))
-                            .values(is_read=True)
-                        )
-                    session.commit()
-                    
-                    # Notify other participants about read status
-                    await manager.broadcast_to_room(room_id, {
-                        "type": "messages_read",
-                        "user_id": user_id
-                    }, exclude_user=user_id)
+                    try:
+                        if user_role == "user":
+                            session.execute(
+                                ChatMessages.__table__.update()
+                                .where(and_(
+                                    ChatMessages.room_id == room_id,
+                                    ChatMessages.sender_type == "senior_user",
+                                    ChatMessages.is_read == False
+                                ))
+                                .values(is_read=True)
+                            )
+                        elif user_role == "senior_user":
+                            session.execute(
+                                ChatMessages.__table__.update()
+                                .where(and_(
+                                    ChatMessages.room_id == room_id,
+                                    ChatMessages.sender_type == "user",
+                                    ChatMessages.is_read == False
+                                ))
+                                .values(is_read=True)
+                            )
+                        session.commit()
+                        
+                        # Notify other participants about read status
+                        await manager.broadcast_to_room(room_id, {
+                            "type": "messages_read",
+                            "user_id": user_id
+                        }, exclude_user=user_id)
+                    except Exception as db_error:
+                        session.rollback()
+                        logger.error(f"Database error marking messages as read: {db_error}")
+                        await websocket.send_text(json.dumps({
+                            "type": "error",
+                            "message": "Failed to mark messages as read"
+                        }))
+            
+            else:
+                # Unknown message type
+                await websocket.send_text(json.dumps({
+                    "type": "error",
+                    "message": f"Unknown message type: {message_type}"
+                }))
     
     except WebSocketDisconnect:
         pass
@@ -181,14 +234,15 @@ async def websocket_endpoint(websocket: WebSocket, room_id: str):
         })
 
 async def create_chat_room_if_not_exists(job_id: int, session: Session) -> ChatRooms:
-    """Create chat room when job status becomes 1"""
-    # Check if job exists and status is 1
+    """Create chat room when job status becomes ACCEPTED or IN_PROGRESS"""
+    # Check if job exists and status allows chat
     job = session.get(Jobs, job_id)
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
     
-    if job.status != 1:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Chat only available when job status is 1")
+    from ..database.models.jobs import JobStatus
+    if job.status not in [JobStatus.ACCEPTED, JobStatus.IN_PROGRESS]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Chat only available when job is accepted or in progress")
     
     # Check if chat room already exists
     existing_room = session.execute(
@@ -202,7 +256,6 @@ async def create_chat_room_if_not_exists(job_id: int, session: Session) -> ChatR
     chat_room = ChatRooms(
         job_id=job_id,
         user_id=job.user_id,
-        senior_id=job.senior_id,
         is_active=True
     )
     session.add(chat_room)
@@ -219,8 +272,11 @@ async def get_my_chat_rooms(ctx = Depends(get_current_user), session: Session = 
             and_(ChatRooms.user_id == user.id, ChatRooms.is_active == True)
         ).order_by(desc(ChatRooms.created_at))
     elif user.role == "senior_user":
+        from ..services.job_application import JobApplicationService
+        job_access = JobApplicationService.get_accepted_jobs_for_senior(session, user.id)
+        has_access = ChatRooms.job_id.in_([job.id for job in job_access])
         stmt = select(ChatRooms).where(
-            and_(ChatRooms.senior_id == user.id, ChatRooms.is_active == True)
+            and_(has_access, ChatRooms.is_active == True)
         ).order_by(desc(ChatRooms.created_at))
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid user role")
@@ -230,9 +286,11 @@ async def get_my_chat_rooms(ctx = Depends(get_current_user), session: Session = 
     # Build response with additional info
     room_responses = []
     for room in rooms:
-        # Get user and senior names
+        # Get user name
         room_user = session.get(Users, room.user_id)
-        room_senior = session.get(SeniorUsers, room.senior_id)
+        
+        # Get accepted seniors for this room
+        accepted_seniors = room.accepted_seniors
         
         # Get unread message count
         unread_count = session.scalar(
@@ -255,7 +313,15 @@ async def get_my_chat_rooms(ctx = Depends(get_current_user), session: Session = 
         
         last_message_out = None
         if last_message:
-            sender_name = room_user.displayname if last_message.sender_type == "user" else room_senior.displayname
+            # Find sender name based on sender_id and sender_type
+            sender_name = None
+            if last_message.sender_type == "user":
+                sender_name = room_user.displayname if room_user else "Unknown User"
+            elif last_message.sender_type == "senior_user":
+                # Find the senior who sent this message
+                sender_senior = next((senior for senior in accepted_seniors if senior.id == last_message.sender_id), None)
+                sender_name = sender_senior.displayname if sender_senior else "Unknown Senior"
+            
             last_message_out = ChatMessageOut(
                 id=last_message.id,
                 room_id=last_message.room_id,
@@ -267,13 +333,22 @@ async def get_my_chat_rooms(ctx = Depends(get_current_user), session: Session = 
                 created_at=last_message.created_at
             )
         
+        # Build seniors info list
+        seniors_info = [
+            {
+                "id": senior.id,
+                "displayname": senior.displayname,
+                "profile_id": senior.profile_id
+            }
+            for senior in accepted_seniors
+        ]
+        
         room_responses.append(ChatRoomOut(
             id=room.id,
             job_id=room.job_id,
             user_id=room.user_id,
-            senior_id=room.senior_id,
             user_name=room_user.displayname if room_user else None,
-            senior_name=room_senior.displayname if room_senior else None,
+            seniors=seniors_info,
             is_active=room.is_active,
             created_at=room.created_at,
             unread_count=unread_count,
@@ -292,8 +367,17 @@ async def get_chat_room(room_id: str, ctx = Depends(get_current_user), session: 
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
     
     # Check if user has access to this room
-    if room.user_id != user.id and room.senior_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    has_access = False
+    if user.role == "user" and room.user_id == user.id:
+        # User who created the job has access
+        has_access = True
+    elif user.role == "senior_user":
+        # Senior must have accepted the job to access chat
+        from ..services.job_application import JobApplicationService
+        has_access = JobApplicationService.can_access_chatroom(session, room.id, user.id)
+    
+    if not has_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied - You must accept the job to access this chat")
     
     # Get messages
     messages_stmt = (
@@ -303,14 +387,22 @@ async def get_chat_room(room_id: str, ctx = Depends(get_current_user), session: 
     )
     messages = session.scalars(messages_stmt).all()
     
-    # Get user and senior names
+    # Get user name and accepted seniors
     room_user = session.get(Users, room.user_id)
-    room_senior = session.get(SeniorUsers, room.senior_id)
+    accepted_seniors = room.accepted_seniors
     
     # Build message responses
     message_responses = []
     for msg in messages:
-        sender_name = room_user.displayname if msg.sender_type == "user" else room_senior.displayname
+        # Find sender name based on sender_id and sender_type
+        sender_name = None
+        if msg.sender_type == "user":
+            sender_name = room_user.displayname if room_user else "Unknown User"
+        elif msg.sender_type == "senior_user":
+            # Find the senior who sent this message
+            sender_senior = next((senior for senior in accepted_seniors if senior.id == msg.sender_id), None)
+            sender_name = sender_senior.displayname if sender_senior else "Unknown Senior"
+            
         message_responses.append(ChatMessageOut(
             id=msg.id,
             room_id=msg.room_id,
@@ -346,13 +438,22 @@ async def get_chat_room(room_id: str, ctx = Depends(get_current_user), session: 
     
     session.commit()
     
+    # Build seniors info list
+    seniors_info = [
+        {
+            "id": senior.id,
+            "displayname": senior.displayname,
+            "profile_id": senior.profile_id
+        }
+        for senior in accepted_seniors
+    ]
+    
     return ChatRoomWithMessages(
         id=room.id,
         job_id=room.job_id,
         user_id=room.user_id,
-        senior_id=room.senior_id,
         user_name=room_user.displayname if room_user else None,
-        senior_name=room_senior.displayname if room_senior else None,
+        seniors=seniors_info,
         is_active=room.is_active,
         created_at=room.created_at,
         messages=message_responses
@@ -373,8 +474,17 @@ async def send_message(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
     
     # Check if user has access to this room
-    if room.user_id != user.id and room.senior_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    has_access = False
+    if user.role == "user" and room.user_id == user.id:
+        # User who created the job has access
+        has_access = True
+    elif user.role == "senior_user":
+        # Senior must have accepted the job to access chat
+        from ..services.job_application import JobApplicationService
+        has_access = JobApplicationService.can_access_chatroom(session, room.id, user.id)
+    
+    if not has_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied - You must accept the job to access this chat")
     
     if not room.is_active:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Chat room is not active")
@@ -432,20 +542,38 @@ async def create_or_get_chat_room(job_id: int, ctx = Depends(get_current_user), 
     room = await create_chat_room_if_not_exists(job_id, session)
     
     # Check if user has access
-    if room.user_id != user.id and room.senior_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    has_access = False
+    if user.role == "user" and room.user_id == user.id:
+        # User who created the job has access
+        has_access = True
+    elif user.role == "senior_user":
+        # Senior must have accepted the job to access chat
+        from ..services.job_application import JobApplicationService
+        has_access = JobApplicationService.can_access_chatroom(session, room.id, user.id)
     
-    # Get user and senior names
+    if not has_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied - You must accept the job to access this chat")
+    
+    # Get user name and accepted seniors
     room_user = session.get(Users, room.user_id)
-    room_senior = session.get(SeniorUsers, room.senior_id)
+    accepted_seniors = room.accepted_seniors
+    
+    # Build seniors info list
+    seniors_info = [
+        {
+            "id": senior.id,
+            "displayname": senior.displayname,
+            "profile_id": senior.profile_id
+        }
+        for senior in accepted_seniors
+    ]
     
     return ChatRoomOut(
         id=room.id,
         job_id=room.job_id,
         user_id=room.user_id,
-        senior_id=room.senior_id,
         user_name=room_user.displayname if room_user else None,
-        senior_name=room_senior.displayname if room_senior else None,
+        seniors=seniors_info,
         is_active=room.is_active,
         created_at=room.created_at
     )
@@ -460,11 +588,24 @@ async def get_online_users(room_id: str, ctx = Depends(get_current_user), sessio
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat room not found")
     
     # Check if user has access
-    if room.user_id != user.id and room.senior_id != user.id:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    has_access = False
+    if user.role == "user" and room.user_id == user.id:
+        # User who created the job has access
+        has_access = True
+    elif user.role == "senior_user":
+        # Senior must have accepted the job to access chat
+        from ..services.job_application import JobApplicationService
+        has_access = JobApplicationService.can_access_chatroom(session, room.id, user.id)
+    
+    if not has_access:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied - You must accept the job to access this chat")
     
     # Get online users
     online_user_ids = manager.get_online_users_in_room(room_id)
+    
+    # Get accepted seniors for this room
+    accepted_seniors = room.accepted_seniors
+    accepted_senior_ids = {senior.id for senior in accepted_seniors}
     
     # Get user details
     online_users = []
@@ -477,7 +618,7 @@ async def get_online_users(room_id: str, ctx = Depends(get_current_user), sessio
                     "name": user_obj.displayname,
                     "type": "user"
                 })
-        elif user_id == room.senior_id:
+        elif user_id in accepted_senior_ids:
             senior_obj = session.get(SeniorUsers, user_id)
             if senior_obj:
                 online_users.append({

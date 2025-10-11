@@ -2,6 +2,12 @@ from __future__ import annotations
 from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, String, CheckConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 import secrets
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .jobs import Jobs
+    from .chats import ChatRooms
+    from .files import Files
 
 from ..db import Base
 
@@ -24,9 +30,9 @@ class Users(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # ORM relationships (one-to-one แบบ uselist=False)
-    profile = relationship("UserProfiles", back_populates="user", uselist=False)
-    job = relationship("Jobs", back_populates="user", uselist=True)
-    chat_rooms = relationship("ChatRooms", back_populates="user", uselist=True)
+    profile: Mapped["UserProfiles"] = relationship("UserProfiles", back_populates="user", uselist=False)
+    job: Mapped[list["Jobs"]] = relationship("Jobs", back_populates="user", uselist=True)
+    chat_rooms: Mapped[list["ChatRooms"]] = relationship("ChatRooms", back_populates="user", uselist=True)
 
 class UserProfiles(Base):
     __tablename__ = "user_profiles"
@@ -44,5 +50,5 @@ class UserProfiles(Base):
     gender: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_image_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True)
 
-    user = relationship("Users", back_populates="profile", uselist=False)
-    profile_image = relationship("Files", uselist=False)
+    user: Mapped["Users"] = relationship("Users", back_populates="profile", uselist=False)
+    profile_image: Mapped["Files"] = relationship("Files", uselist=False)

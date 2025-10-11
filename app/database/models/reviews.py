@@ -1,6 +1,10 @@
 from __future__ import annotations
 from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, Float, Boolean
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .jobs import Jobs
 
 from ..db import Base
 
@@ -13,4 +17,4 @@ class Reviews(Base):
     comment: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
-    job = relationship("Jobs", back_populates="review", uselist=False)
+    job: Mapped["Jobs"] = relationship("Jobs", back_populates="review", uselist=False)

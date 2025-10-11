@@ -1,7 +1,12 @@
 from __future__ import annotations
-from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, Boolean, CheckConstraint
+from sqlalchemy import ARRAY, Column, Integer, Table, Text, DateTime, func, ForeignKey, Boolean, CheckConstraint
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 import secrets
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .jobs import Jobs
+    from .users import Users
 
 from ..db import Base
 
@@ -18,15 +23,18 @@ class ChatRooms(Base):
     id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("CR"))
     job_id: Mapped[int] = mapped_column(Integer, ForeignKey("jobs.id", ondelete="CASCADE"), unique=True, nullable=False)
     user_id: Mapped[str] = mapped_column(Text, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    senior_id: Mapped[str] = mapped_column(Text, ForeignKey("senior_users.id", ondelete="CASCADE"), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # ORM relationships
-    job = relationship("Jobs", back_populates="chat_room", uselist=False)
-    user = relationship("Users", back_populates="chat_rooms", uselist=False)
-    senior = relationship("SeniorUsers", back_populates="chat_rooms", uselist=False)
-    messages = relationship("ChatMessages", back_populates="room", uselist=True, order_by="ChatMessages.created_at")
+    job: Mapped["Jobs"] = relationship("Jobs", back_populates="chat_room", uselist=False)
+    user: Mapped["Users"] = relationship("Users", back_populates="chat_rooms", uselist=False)
+    messages: Mapped[list["ChatMessages"]] = relationship("ChatMessages", back_populates="room", uselist=True, order_by="ChatMessages.created_at")
+    
+    @property
+    def accepted_seniors(self):
+        """Get all seniors who have accepted this job and can access the chat"""
+        return self.job.accepted_seniors if self.job else []
 
 class ChatMessages(Base):
     __tablename__ = "chat_messages"
@@ -43,4 +51,4 @@ class ChatMessages(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # ORM relationships
-    room = relationship("ChatRooms", back_populates="messages", uselist=False)
+    room: Mapped["ChatRooms"] = relationship("ChatRooms", back_populates="messages", uselist=False)

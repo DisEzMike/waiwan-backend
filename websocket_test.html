@@ -1,55 +1,601 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WebSocket Chat Test</title>
+    <title>WaiWan Chat & Job Application Test</title>
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; }
-        #messageInput { width: 300px; padding: 5px; }
-        button { padding: 5px 10px; margin: 5px; }
-        .message { margin: 5px 0; padding: 5px; background: #f0f0f0; border-radius: 5px; }
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .section { background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .section h3 { margin-top: 0; color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        
+        #messages { height: 300px; overflow-y: scroll; border: 1px solid #ccc; padding: 10px; margin-bottom: 10px; background: #fafafa; }
+        input, select { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 8px 15px; margin: 5px; border: none; border-radius: 4px; cursor: pointer; }
+        .btn-primary { background: #007bff; color: white; }
+        .btn-success { background: #28a745; color: white; }
+        .btn-warning { background: #ffc107; color: black; }
+        .btn-danger { background: #dc3545; color: white; }
+        .btn-secondary { background: #6c757d; color: white; }
+        
+        .message { margin: 5px 0; padding: 8px; border-radius: 5px; }
         .my-message { background: #007bff; color: white; }
-        .system-message { background: #ffc107; }
+        .system-message { background: #ffc107; color: black; }
+        .error-message { background: #dc3545; color: white; }
         .typing { font-style: italic; color: #666; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .status { padding: 10px; border-radius: 4px; margin: 10px 0; }
+        .status.connected { background: #d4edda; color: #155724; }
+        .status.disconnected { background: #f8d7da; color: #721c24; }
+        .status.error { background: #fff3cd; color: #856404; }
+        
+        .flow-step { margin: 10px 0; padding: 10px; border-left: 4px solid #007bff; background: #f8f9fa; }
+        .api-response { background: #f8f9fa; padding: 10px; border-radius: 4px; margin: 10px 0; font-family: monospace; font-size: 12px; max-height: 200px; overflow-y: auto; }
+        .api-response.success { background: #d4edda; color: #155724; }
+        .api-response.error { background: #f8d7da; color: #721c24; }
+        .api-response.info { background: #d1ecf1; color: #0c5460; }
+        
+        .auth-form { display: flex; flex-direction: column; gap: 15px; }
+        .form-group { display: flex; flex-direction: column; gap: 10px; }
+        .form-group label { font-weight: bold; color: #333; margin-bottom: 5px; }
+        .form-input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }
+        .form-input:focus { outline: none; border-color: #007cba; box-shadow: 0 0 0 2px rgba(0, 124, 186, 0.2); }
+        .token-display { display: flex; flex-direction: column; gap: 10px; }
+        .section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        
+        #messageInput { width: 250px; }
+        #roomInput, #tokenInput { width: 400px; }
+        
+        .inline { display: inline-block; margin: 5px; }
     </style>
 </head>
 <body>
-    <h1>WebSocket Chat Test</h1>
-    
-    <div>
-        <label>JWT Token:</label><br>
-        <input type="text" id="tokenInput" placeholder="Enter your JWT token" style="width: 500px;">
-    </div>
-    <br>
-    
-    <div>
-        <label>Room ID:</label><br>
-        <input type="text" id="roomInput" placeholder="Enter room ID" style="width: 300px;">
-        <button onclick="connect()">Connect</button>
-        <button onclick="disconnect()">Disconnect</button>
-    </div>
-    <br>
-    
-    <div id="status">Status: Disconnected</div>
-    <br>
-    
-    <div id="messages"></div>
-    
-    <div>
-        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
-        <button onclick="sendMessage()">Send</button>
-        <button onclick="markAsRead()">Mark as Read</button>
-    </div>
-    
-    <div>
-        <button onclick="startTyping()">Start Typing</button>
-        <button onclick="stopTyping()">Stop Typing</button>
+    <div class="container">
+        <h1>WaiWan Backend Test Suite</h1>
+        
+        <!-- Real Authentication Section -->
+        <div id="authSection" class="section">
+            <h2>🔐 Real Authentication</h2>
+            <div class="auth-form">
+                <div class="form-group">
+                    <label for="phoneInput">Phone Number:</label>
+                    <input type="tel" id="phoneInput" placeholder="0812345678" class="form-input">
+                    <button class="btn-primary" onclick="requestOTP()">Request OTP</button>
+                </div>
+                
+                <div id="otpSection" class="form-group" style="display: none;">
+                    <label for="otpInput">OTP Code:</label>
+                    <input type="text" id="otpInput" placeholder="1234 (fixed for testing)" class="form-input">
+                    <select id="userType" class="form-input">
+                        <option value="user">Regular User</option>
+                        <option value="senior_user">Senior User</option>
+                    </select>
+                    <button class="btn-primary" onclick="verifyOTP()">Verify OTP</button>
+                </div>
+                
+                <div id="profileSection" class="form-group" style="display: none;">
+                    <h3>Profile Information</h3>
+                    <input type="text" id="firstNameInput" placeholder="First Name" class="form-input">
+                    <input type="text" id="lastNameInput" placeholder="Last Name" class="form-input">
+                    <input type="text" id="workExperienceInput" placeholder="Work Experience (for seniors)" class="form-input">
+                    <input type="text" id="otherAbilityInput" placeholder="Other Abilities (for seniors)" class="form-input">
+                    <button class="btn-primary" onclick="createUserToken()">Create Account & Token</button>
+                </div>
+                
+                <div id="authStatus" class="api-response"></div>
+                
+                <div class="form-group">
+                    <button class="btn-secondary" onclick="resetAuth()">Reset Authentication</button>
+                    <button class="btn-secondary" onclick="generateMockToken(); document.getElementById('authSection').style.display='none'; document.getElementById('mainInterface').style.display='block';">Use Mock Token (Testing)</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Testing Interface (hidden initially) -->
+        <div id="mainInterface" style="display: none;">
+            <!-- Token Management Section -->
+            <div class="section">
+                <h2>🎫 Current Token</h2>
+                <div class="token-display">
+                    <label for="tokenInput">JWT Token:</label>
+                    <textarea id="tokenInput" class="form-input" rows="3" readonly></textarea>
+                    <button class="btn-secondary" onclick="validateToken()">Validate Token</button>
+                    <button class="btn-secondary" onclick="resetAuth()">Get New Token</button>
+                </div>
+            </div>
+
+            <!-- Job Management Section -->
+            <div class="section">
+                <h3>💼 Job Application Flow</h3>
+                <div>
+                    <label>Job ID:</label>
+                    <input type="number" id="jobId" placeholder="Job ID" value="1">
+                    <label>Senior ID:</label>
+                    <input type="text" id="seniorId" placeholder="Senior ID" value="S12345678">
+                </div>
+                <div>
+                    <button class="btn-primary" onclick="testCreateJob()">Create Test Job</button>
+                    <button class="btn-success" onclick="testInviteSenior()">Invite Senior</button>
+                    <button class="btn-warning" onclick="testAcceptJob()">Accept Job</button>
+                    <button class="btn-danger" onclick="testDeclineJob()">Decline Job</button>
+                </div>
+                <div>
+                    <button class="btn-secondary" onclick="testGetPendingApplications()">Get Pending Applications</button>
+                    <button class="btn-secondary" onclick="testFlowStatus()">Check Flow Status</button>
+                </div>
+                <div id="jobStatus" class="api-response">Job operations will appear here...</div>
+            </div>
+        </div>
+
+        <!-- WebSocket Chat Section -->
+        <div class="section">
+            <h3>💬 WebSocket Chat Test</h3>
+            <div class="grid">
+                <div>
+                    <div>
+                        <label>Room ID:</label><br>
+                        <input type="text" id="roomInput" placeholder="Enter room ID (e.g., CR12345678)">
+                        <button class="btn-primary" onclick="connect()">Connect</button>
+                        <button class="btn-danger" onclick="disconnect()">Disconnect</button>
+                    </div>
+                    
+                    <div id="wsStatus" class="status disconnected">WebSocket: Disconnected</div>
+                    
+                    <div>
+                        <input type="text" id="messageInput" placeholder="Type a message..." onkeypress="handleKeyPress(event)">
+                        <button class="btn-success" onclick="sendMessage()">Send</button>
+                    </div>
+                    
+                    <div>
+                        <button class="btn-secondary inline" onclick="markAsRead()">Mark as Read</button>
+                        <button class="btn-secondary inline" onclick="startTyping()">Start Typing</button>
+                        <button class="btn-secondary inline" onclick="stopTyping()">Stop Typing</button>
+                        <button class="btn-warning inline" onclick="sendTestMessage()">Send Test Message</button>
+                        <button class="btn-danger inline" onclick="testInvalidMessage()">Test Invalid JSON</button>
+                    </div>
+                </div>
+                
+                <div>
+                    <h4>Chat Messages</h4>
+                    <div id="messages"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Test Flow Section -->
+        <div class="section">
+            <h3>🔄 Complete Flow Test</h3>
+            <p>Test the complete workflow from job creation to chat participation:</p>
+            <div class="flow-step">
+                <strong>Step 1:</strong> Generate tokens for User and Senior
+                <button class="btn-primary" onclick="generateUserAndSeniorTokens()">Generate Both Tokens</button>
+            </div>
+            <div class="flow-step">
+                <strong>Step 2:</strong> User creates job and invites senior
+                <button class="btn-primary" onclick="runUserFlow()">Run User Flow</button>
+            </div>
+            <div class="flow-step">
+                <strong>Step 3:</strong> Senior accepts job
+                <button class="btn-success" onclick="runSeniorFlow()">Run Senior Flow</button>
+            </div>
+            <div class="flow-step">
+                <strong>Step 4:</strong> Both connect to chat room
+                <button class="btn-warning" onclick="runChatFlow()">Run Chat Flow</button>
+            </div>
+            <div id="flowResults" class="api-response">Flow test results will appear here...</div>
+        </div>
+
+        <!-- API Test Section -->
+        <div class="section">
+            <h3>🔧 API Endpoints Test</h3>
+            <div>
+                <button class="btn-secondary" onclick="testGetRooms()">Get Chat Rooms</button>
+                <button class="btn-secondary" onclick="testGetRoom()">Get Specific Room</button>
+                <button class="btn-secondary" onclick="testOnlineUsers()">Get Online Users</button>
+                <button class="btn-secondary" onclick="testCreateChatRoom()">Create Chat Room</button>
+            </div>
+            <div id="apiResults" class="api-response">API test results will appear here...</div>
+        </div>
     </div>
 
     <script>
         let ws = null;
         let typingTimeout = null;
+        let currentAuthCode = null;
+        const API_BASE = 'http://127.0.0.1:8001';
+        const WS_BASE = 'ws://127.0.0.1:8001';
+        
+        // Mock data
+        const mockUsers = {
+            user: { id: 'U12345678', displayname: 'Test User', role: 'user' },
+            senior_user: { id: 'S12345678', displayname: 'Test Senior', role: 'senior_user' }
+        };
 
+        // Real Token Authentication
+        async function requestOTP() {
+            const phone = document.getElementById('phoneInput').value;
+            if (!phone) {
+                updateAuthStatus('Please enter a phone number', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/request-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ phone: phone })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    updateAuthStatus(`OTP sent to ${phone}. Use OTP: 1234 (fixed for testing)`, 'success');
+                    document.getElementById('otpSection').style.display = 'block';
+                } else {
+                    updateAuthStatus(`Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                updateAuthStatus(`Error requesting OTP: ${error.message}`, 'error');
+            }
+        }
+        
+        async function verifyOTP() {
+            const phone = document.getElementById('phoneInput').value;
+            const otp = document.getElementById('otpInput').value;
+            const role = document.getElementById('userType').value;
+            
+            if (!phone || !otp) {
+                updateAuthStatus('Please enter phone and OTP', 'error');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth/verify-otp`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        phone: phone,
+                        otp: otp,
+                        role: role
+                    })
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    currentAuthCode = result.auth_code;
+                    updateAuthStatus(`OTP verified! Auth code: ${result.auth_code}`, 'success');
+                    
+                    if (result.is_new) {
+                        document.getElementById('profileSection').style.display = 'block';
+                        updateAuthStatus('New user detected. Please fill profile information.', 'info');
+                    } else {
+                        // Existing user, create token directly
+                        await createUserToken();
+                    }
+                } else {
+                    updateAuthStatus(`Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                updateAuthStatus(`Error verifying OTP: ${error.message}`, 'error');
+            }
+        }
+        
+        async function createUserToken() {
+            if (!currentAuthCode) {
+                updateAuthStatus('Please verify OTP first', 'error');
+                return;
+            }
+            
+            const role = document.getElementById('userType').value;
+            let payload = {};
+            
+            // For new users, collect profile information
+            if (document.getElementById('profileSection').style.display === 'block') {
+                const firstName = document.getElementById('firstNameInput').value;
+                const lastName = document.getElementById('lastNameInput').value;
+                
+                if (!firstName || !lastName) {
+                    updateAuthStatus('Please fill in first name and last name', 'error');
+                    return;
+                }
+                
+                payload = {
+                    profile: {
+                        first_name: firstName,
+                        last_name: lastName,
+                        phone: document.getElementById('phoneInput').value
+                    }
+                };
+                
+                if (role === 'senior_user') {
+                    payload.ability = {
+                        work_experience: document.getElementById('workExperienceInput').value || 'General helper',
+                        other_ability: document.getElementById('otherAbilityInput').value || 'Flexible and reliable'
+                    };
+                }
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/auth?auth_code=${currentAuthCode}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(payload)
+                });
+                
+                const result = await response.json();
+                if (response.ok) {
+                    document.getElementById('tokenInput').value = result.access_token;
+                    updateAuthStatus(`Token created successfully! User ID: ${result.user_id}`, 'success');
+                    
+                    // Hide auth sections and show main interface
+                    document.getElementById('authSection').style.display = 'none';
+                    document.getElementById('mainInterface').style.display = 'block';
+                    
+                    // Update display with user info
+                    updateJobStatus(`Authenticated as ${role} (ID: ${result.user_id})`, 'success');
+                } else {
+                    updateAuthStatus(`Error: ${result.detail}`, 'error');
+                }
+            } catch (error) {
+                updateAuthStatus(`Error creating token: ${error.message}`, 'error');
+            }
+        }
+        
+        function updateAuthStatus(message, type = 'success') {
+            const authStatus = document.getElementById('authStatus');
+            authStatus.textContent = message;
+            authStatus.className = `api-response ${type}`;
+        }
+        
+        function resetAuth() {
+            currentAuthCode = null;
+            document.getElementById('otpSection').style.display = 'none';
+            document.getElementById('profileSection').style.display = 'none';
+            document.getElementById('authSection').style.display = 'block';
+            document.getElementById('mainInterface').style.display = 'none';
+            document.getElementById('tokenInput').value = '';
+            document.getElementById('phoneInput').value = '';
+            document.getElementById('otpInput').value = '';
+            document.getElementById('firstNameInput').value = '';
+            document.getElementById('lastNameInput').value = '';
+            document.getElementById('workExperienceInput').value = '';
+            document.getElementById('otherAbilityInput').value = '';
+            updateAuthStatus('Ready for authentication');
+        }
+
+        // Generate mock JWT token
+        function generateMockToken() {
+            const userType = document.getElementById('userType').value;
+            const user = mockUsers[userType];
+            
+            // Create a simple base64 encoded mock token
+            const payload = {
+                sub: user.id,
+                role: user.role,
+                displayname: user.displayname,
+                exp: Math.floor(Date.now() / 1000) + (60 * 60 * 24) // 24 hours
+            };
+            
+            const mockToken = btoa(JSON.stringify(payload));
+            document.getElementById('tokenInput').value = `mock.${mockToken}.signature`;
+            
+            updateAuthStatus(`Generated mock token for ${user.displayname} (${user.role})`);
+        }
+
+        function validateToken() {
+            const token = document.getElementById('tokenInput').value;
+            if (!token) {
+                updateAuthStatus('No token provided', 'error');
+                return;
+            }
+            
+            try {
+                if (token.startsWith('mock.')) {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    updateAuthStatus(`Valid mock token for ${payload.displayname} (${payload.role})`, 'success');
+                } else if (token.startsWith('eyJ')) {
+                    // Real JWT token - try to decode payload
+                    const parts = token.split('.');
+                    if (parts.length === 3) {
+                        const payload = JSON.parse(atob(parts[1]));
+                        const exp = new Date(payload.exp * 1000);
+                        const now = new Date();
+                        
+                        if (exp > now) {
+                            updateAuthStatus(`Valid JWT token for user ${payload.sub} (${payload.role}) - expires ${exp.toLocaleString()}`, 'success');
+                        } else {
+                            updateAuthStatus(`JWT token expired at ${exp.toLocaleString()}`, 'error');
+                        }
+                    } else {
+                        updateAuthStatus('Invalid JWT token format', 'error');
+                    }
+                } else {
+                    updateAuthStatus('Unknown token format', 'error');
+                }
+            } catch (e) {
+                updateAuthStatus(`Token validation error: ${e.message}`, 'error');
+            }
+        }
+
+        // Job Application API Tests
+        async function testCreateJob() {
+            const token = document.getElementById('tokenInput').value;
+            if (!token) {
+                updateJobStatus('Please provide a token first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: 'Test Job - Garden Cleaning',
+                        description: 'Need help cleaning the garden and trimming plants',
+                        price: 500.0,
+                        work_type: 'gardening',
+                        vehicle: false
+                    })
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job created: ${JSON.stringify(result, null, 2)}`);
+                
+                if (result.id) {
+                    document.getElementById('jobId').value = result.id;
+                }
+            } catch (error) {
+                updateJobStatus(`Error creating job: ${error.message}`, 'error');
+            }
+        }
+
+        async function testInviteSenior() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+            const seniorId = document.getElementById('seniorId').value;
+
+            if (!token || !jobId || !seniorId) {
+                updateJobStatus('Please provide token, job ID, and senior ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/invite`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        senior_id: seniorId,
+                        message: 'Would you like to help with this job?'
+                    })
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Senior invited: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error inviting senior: ${error.message}`, 'error');
+            }
+        }
+
+        async function testAcceptJob() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/accept`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        message: 'I accept this job and am ready to start!'
+                    })
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job accepted: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error accepting job: ${error.message}`, 'error');
+            }
+        }
+
+        async function testDeclineJob() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/decline`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        message: 'Sorry, I cannot take this job at this time.'
+                    })
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job declined: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error declining job: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetPendingApplications() {
+            const token = document.getElementById('tokenInput').value;
+
+            if (!token) {
+                updateJobStatus('Please provide a token first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/applications/pending`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Pending applications: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error getting applications: ${error.message}`, 'error');
+            }
+        }
+
+        async function testFlowStatus() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/flow-test`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Flow status: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error getting flow status: ${error.message}`, 'error');
+            }
+        }
+
+        function updateJobStatus(message, type = 'success') {
+            const jobStatus = document.getElementById('jobStatus');
+            jobStatus.textContent = message;
+            jobStatus.className = `api-response ${type}`;
+        }
+
+        // WebSocket Functions
         function connect() {
             const token = document.getElementById('tokenInput').value;
             const roomId = document.getElementById('roomInput').value;
@@ -59,12 +605,12 @@
                 return;
             }
 
-            const wsUrl = `ws://127.0.0.1:8001/chat/ws/${roomId}?token=${encodeURIComponent(token)}`;
+            const wsUrl = `${WS_BASE}/chat/ws/${roomId}?token=${encodeURIComponent(token)}`;
             
             ws = new WebSocket(wsUrl);
             
             ws.onopen = function(event) {
-                document.getElementById('status').textContent = 'Status: Connected';
+                updateWsStatus('Connected', 'connected');
                 addMessage('Connected to room ' + roomId, 'system-message');
             };
             
@@ -93,17 +639,23 @@
                     case 'messages_read':
                         addMessage(`User ${data.user_id} read messages`, 'system-message');
                         break;
+                    case 'error':
+                        addMessage(`Error: ${data.message}`, 'error-message');
+                        break;
+                    default:
+                        addMessage(`Unknown message type: ${data.type}`, 'system-message');
                 }
             };
             
             ws.onclose = function(event) {
-                document.getElementById('status').textContent = 'Status: Disconnected';
-                addMessage('Disconnected from server', 'system-message');
+                updateWsStatus(`Disconnected (Code: ${event.code})`, 'disconnected');
+                addMessage(`Disconnected: ${event.reason || 'Connection closed'}`, 'system-message');
             };
             
             ws.onerror = function(error) {
                 console.error('WebSocket error:', error);
-                addMessage('Connection error', 'system-message');
+                updateWsStatus('Connection Error', 'error');
+                addMessage('Connection error', 'error-message');
             };
         }
 
@@ -124,7 +676,26 @@
                     message: message
                 };
                 ws.send(JSON.stringify(data));
+                addMessage(`You: ${message}`, 'my-message');
                 messageInput.value = '';
+            }
+        }
+
+        function sendTestMessage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                const data = {
+                    type: 'message',
+                    message: 'This is a test message from the test suite!'
+                };
+                ws.send(JSON.stringify(data));
+                addMessage('You: This is a test message from the test suite!', 'my-message');
+            }
+        }
+
+        function testInvalidMessage() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send('invalid json message');
+                addMessage('Sent invalid JSON to test error handling', 'system-message');
             }
         }
 
@@ -132,6 +703,7 @@
             if (ws && ws.readyState === WebSocket.OPEN) {
                 const data = { type: 'mark_read' };
                 ws.send(JSON.stringify(data));
+                addMessage('Marked messages as read', 'system-message');
             }
         }
 
@@ -160,6 +732,12 @@
             }
         }
 
+        function updateWsStatus(message, status) {
+            const wsStatus = document.getElementById('wsStatus');
+            wsStatus.textContent = `WebSocket: ${message}`;
+            wsStatus.className = `status ${status}`;
+        }
+
         function addMessage(text, className) {
             const messagesDiv = document.getElementById('messages');
             const messageDiv = document.createElement('div');
@@ -170,7 +748,6 @@
         }
 
         function removeTypingIndicator(userId) {
-            // Simple implementation - in real app you'd track typing indicators properly
             const messages = document.querySelectorAll('.typing');
             messages.forEach(msg => {
                 if (msg.textContent.includes(userId)) {
@@ -178,6 +755,179 @@
                 }
             });
         }
+
+        // Complete Flow Tests
+        function generateUserAndSeniorTokens() {
+            updateFlowResults('Generating tokens for both user types...\n');
+            
+            // Generate user token
+            document.getElementById('userType').value = 'user';
+            generateMockToken();
+            const userToken = document.getElementById('tokenInput').value;
+            
+            // Generate senior token
+            document.getElementById('userType').value = 'senior_user';
+            generateMockToken();
+            const seniorToken = document.getElementById('tokenInput').value;
+            
+            updateFlowResults(`User Token: ${userToken}\nSenior Token: ${seniorToken}\n\nTokens generated successfully!`);
+        }
+
+        async function runUserFlow() {
+            updateFlowResults('Running User Flow...\n');
+            
+            // Set user token
+            document.getElementById('userType').value = 'user';
+            generateMockToken();
+            
+            // Create job
+            await testCreateJob();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Invite senior
+            await testInviteSenior();
+            
+            updateFlowResults(prev => prev + '\nUser flow completed: Job created and senior invited!');
+        }
+
+        async function runSeniorFlow() {
+            updateFlowResults(prev => prev + '\n\nRunning Senior Flow...\n');
+            
+            // Set senior token
+            document.getElementById('userType').value = 'senior_user';
+            generateMockToken();
+            
+            // Check pending applications
+            await testGetPendingApplications();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Accept job
+            await testAcceptJob();
+            
+            updateFlowResults(prev => prev + '\nSenior flow completed: Job accepted and chat room should be created!');
+        }
+
+        function runChatFlow() {
+            updateFlowResults(prev => prev + '\n\nRunning Chat Flow...\n');
+            
+            // Set room ID (you would get this from the job acceptance response)
+            document.getElementById('roomInput').value = 'CR12345678';
+            
+            // Connect to chat
+            connect();
+            
+            updateFlowResults(prev => prev + '\nChat flow initiated: Try connecting both user and senior to chat!');
+        }
+
+        function updateFlowResults(message) {
+            const flowResults = document.getElementById('flowResults');
+            if (typeof message === 'function') {
+                flowResults.textContent = message(flowResults.textContent);
+            } else {
+                flowResults.textContent = message;
+            }
+        }
+
+        // API Test Functions
+        async function testGetRooms() {
+            const token = document.getElementById('tokenInput').value;
+            if (!token) {
+                updateApiResults('Please provide a token first');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/rooms`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                updateApiResults(`Chat Rooms: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateApiResults(`Error: ${error.message}`);
+            }
+        }
+
+        async function testGetRoom() {
+            const token = document.getElementById('tokenInput').value;
+            const roomId = document.getElementById('roomInput').value;
+            
+            if (!token || !roomId) {
+                updateApiResults('Please provide token and room ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/rooms/${roomId}`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                updateApiResults(`Room Details: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateApiResults(`Error: ${error.message}`);
+            }
+        }
+
+        async function testOnlineUsers() {
+            const token = document.getElementById('tokenInput').value;
+            const roomId = document.getElementById('roomInput').value;
+            
+            if (!token || !roomId) {
+                updateApiResults('Please provide token and room ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/rooms/${roomId}/online-users`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                updateApiResults(`Online Users: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateApiResults(`Error: ${error.message}`);
+            }
+        }
+
+        async function testCreateChatRoom() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+            
+            if (!token || !jobId) {
+                updateApiResults('Please provide token and job ID');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/chat/jobs/${jobId}/room`, {
+                    method: 'POST',
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const result = await response.json();
+                updateApiResults(`Chat Room Created: ${JSON.stringify(result, null, 2)}`);
+                
+                if (result.id) {
+                    document.getElementById('roomInput').value = result.id;
+                }
+            } catch (error) {
+                updateApiResults(`Error: ${error.message}`);
+            }
+        }
+
+        function updateApiResults(message) {
+            const apiResults = document.getElementById('apiResults');
+            apiResults.innerHTML = `<pre><code>${message}</code></pre>`;
+        }
+
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set default values
+            document.getElementById('jobId').value = '1';
+            document.getElementById('seniorId').value = 'S12345678';
+            document.getElementById('roomInput').value = 'CR12345678';
+            
+            // Initialize authentication
+            updateAuthStatus('Ready for authentication. Enter your phone number to get started.');
+            updateFlowResults('Ready to test! Start with real authentication or use mock tokens for testing.');
+        });
     </script>
 </body>
 </html>

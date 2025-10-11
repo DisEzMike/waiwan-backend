@@ -34,7 +34,7 @@ class DB:
     def create_all(self) -> None:
         from .models.users import Users, UserProfiles
         from .models.senior_users import SeniorUsers, SeniorProfiles, SeniorAbilities
-        from .models.jobs import Jobs, Status
+        from .models.jobs import Jobs
         from .models.reviews import Reviews
         from .models.files import Files
         from .models.chats import ChatRooms, ChatMessages
