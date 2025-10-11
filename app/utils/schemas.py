@@ -123,6 +123,10 @@ class JobPayload(BaseModel):
     price: Optional[float] = None
     work_type: Optional[str] = None
     vehicle: Optional[bool] = None
+    max_seniors: Optional[int] = Field(None, description="Maximum number of seniors allowed for this job")
+    started_at: Optional[datetime] = Field(None, description="When the job started")
+    ended_at: Optional[datetime] = Field(None, description="When the job ended")
+    location: Optional[dict] = Field(None, description="Location information (lat, lng, address)")
     updated_at: Optional[datetime] = None
 
 # ---------- Chat ----------

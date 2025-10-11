@@ -59,9 +59,10 @@ class Jobs(Base):
     work_type: Mapped[str | None] = mapped_column(Text, nullable=True)
     vehicle: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     
+    max_seniors: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    
     started_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     ended_at: Mapped[DateTime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # location as json -> {"address": str, "latitude": float, "longitude": float}
     location: Mapped[dict | None] = mapped_column(JSON, nullable=True) 
     
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(),  nullable=False)
@@ -93,3 +94,35 @@ class Jobs(Base):
     def cancelled_seniors(self) -> list["SeniorUsers"]:
         """Get all seniors who have cancelled this job"""
         return [app.senior for app in self.applications if app.status == JobApplicationStatus.CANCELLED]
+    
+    @property
+    def is_full(self) -> bool:
+        """Check if job has reached maximum number of seniors"""
+        if self.max_seniors is None:
+            return False
+        return len(self.accepted_seniors) >= self.max_seniors
+    
+    @property
+    def available_slots(self) -> int:
+        """Get number of available slots for seniors"""
+        if self.max_seniors is None:
+            return float('inf')  # Unlimited
+        return max(0, self.max_seniors - len(self.accepted_seniors))
+    
+    @property
+    def is_active(self) -> bool:
+        """Check if job is currently active (in progress)"""
+        return self.status == JobStatus.IN_PROGRESS
+    
+    @property
+    def is_completed(self) -> bool:
+        """Check if job is completed"""
+        return self.status == JobStatus.COMPLETED
+    
+    @property
+    def duration_hours(self) -> float:
+        """Calculate job duration in hours if both started_at and ended_at are set"""
+        if self.started_at and self.ended_at:
+            delta = self.ended_at - self.started_at
+            return delta.total_seconds() / 3600
+        return 0.0

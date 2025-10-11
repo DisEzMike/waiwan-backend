@@ -17,6 +17,22 @@ class JobApplicationService:
     def invite_senior_to_job(session: Session, job_id: int, senior_id: str, message: str = None) -> JobApplications:
         """Invite a senior to apply for a job"""
         
+        # Get the job to check max_seniors
+        job = session.query(Jobs).filter(Jobs.id == job_id).first()
+        if not job:
+            raise ValueError("Job not found")
+        
+        # Check if max_seniors limit is reached
+        if job.max_seniors is not None:
+            current_accepted = len(job.accepted_seniors)
+            current_pending = len(job.pending_applications)
+            
+            if current_accepted >= job.max_seniors:
+                raise ValueError(f"Job already has maximum number of seniors ({job.max_seniors})")
+            
+            if current_accepted + current_pending >= job.max_seniors:
+                raise ValueError(f"Job already has maximum number of applications pending/accepted ({job.max_seniors})")
+        
         # Check if already applied
         existing = session.query(JobApplications).filter(
             and_(JobApplications.job_id == job_id, JobApplications.senior_id == senior_id)
@@ -59,13 +75,23 @@ class JobApplicationService:
         if not application:
             raise ValueError("No pending application found for this job and senior")
         
+        # Get the job to check max_seniors
+        job = session.query(Jobs).filter(Jobs.id == job_id).first()
+        if not job:
+            raise ValueError("Job not found")
+        
+        # Check if max_seniors limit would be exceeded
+        if job.max_seniors is not None:
+            current_accepted = len(job.accepted_seniors)
+            if current_accepted >= job.max_seniors:
+                raise ValueError(f"Job already has maximum number of seniors ({job.max_seniors})")
+        
         application.status = JobApplicationStatus.ACCEPTED
         application.responded_at = datetime.utcnow()
         if message:
             application.message = message
         
         # Update job status to ACCEPTED when first senior accepts
-        job = session.query(Jobs).filter(Jobs.id == job_id).first()
         if job:
             from app.database.models.jobs import JobStatus
             if job.status == JobStatus.PROPOSED:

@@ -124,6 +124,15 @@
                     <button class="btn-secondary" onclick="testGetPendingApplications()">Get Pending Applications</button>
                     <button class="btn-secondary" onclick="testFlowStatus()">Check Flow Status</button>
                 </div>
+                <div>
+                    <button class="btn-success" onclick="testStartJob()">Start Job</button>
+                    <button class="btn-warning" onclick="testCompleteJob()">Complete Job</button>
+                    <button class="btn-secondary" onclick="testUpdateJob()">Update Job</button>
+                </div>
+                <div>
+                    <button class="btn-secondary" onclick="testGetJobDetails()">Get Job Details</button>
+                    <button class="btn-secondary" onclick="testGetMyJobs()">Get My Jobs</button>
+                </div>
                 <div id="jobStatus" class="api-response">Job operations will appear here...</div>
             </div>
         </div>
@@ -182,6 +191,10 @@
             <div class="flow-step">
                 <strong>Step 4:</strong> Both connect to chat room
                 <button class="btn-warning" onclick="runChatFlow()">Run Chat Flow</button>
+            </div>
+            <div class="flow-step">
+                <strong>🚀 Complete:</strong> Run entire job lifecycle automatically
+                <button class="btn-success" onclick="runCompleteFlow()">Run Complete Flow</button>
             </div>
             <div id="flowResults" class="api-response">Flow test results will appear here...</div>
         </div>
@@ -349,7 +362,7 @@
         
         function updateAuthStatus(message, type = 'success') {
             const authStatus = document.getElementById('authStatus');
-            authStatus.textContent = message;
+            authStatus.innerHTML = `<pre><code>${message}</code></pre>`;
             authStatus.className = `api-response ${type}`;
         }
         
@@ -443,7 +456,14 @@
                         description: 'Need help cleaning the garden and trimming plants',
                         price: 500.0,
                         work_type: 'gardening',
-                        vehicle: false
+                        vehicle: false,
+                        max_seniors: 2,
+                        location: {
+                            address: 'Bangkok, Thailand',
+                            lat: 13.7563,
+                            lng: 100.5018,
+                            notes: 'Near MRT station, easy access'
+                        }
                     })
                 });
                 
@@ -589,9 +609,142 @@
             }
         }
 
+        // New Job Management Functions
+        async function testStartJob() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/start`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job started: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error starting job: ${error.message}`, 'error');
+            }
+        }
+
+        async function testCompleteJob() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}/complete`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job completed: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error completing job: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetMyJobs() {
+            const token = document.getElementById('tokenInput').value;
+
+            if (!token) {
+                updateJobStatus('Please provide a token first', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/my-jobs`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`My jobs: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error getting my jobs: ${error.message}`, 'error');
+            }
+        }
+
+        async function testUpdateJob() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}`, {
+                    method: 'PATCH',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({
+                        title: 'Updated Job - Garden & Pool Cleaning',
+                        description: 'Updated: Need help cleaning the garden, trimming plants, and cleaning the pool',
+                        price: 750.0,
+                        max_seniors: 3,
+                        location: {
+                            address: 'Updated: Bangkok, Thailand',
+                            lat: 13.7563,
+                            lng: 100.5018,
+                            details: 'Near MRT station'
+                        }
+                    })
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job updated: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error updating job: ${error.message}`, 'error');
+            }
+        }
+
+        async function testGetJobDetails() {
+            const token = document.getElementById('tokenInput').value;
+            const jobId = document.getElementById('jobId').value;
+
+            if (!token || !jobId) {
+                updateJobStatus('Please provide token and job ID', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/jobs/${jobId}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const result = await response.json();
+                updateJobStatus(`Job details: ${JSON.stringify(result, null, 2)}`);
+            } catch (error) {
+                updateJobStatus(`Error getting job details: ${error.message}`, 'error');
+            }
+        }
+
         function updateJobStatus(message, type = 'success') {
             const jobStatus = document.getElementById('jobStatus');
-            jobStatus.textContent = message;
+            jobStatus.innerHTML = `<pre><code>${message}</code></pre>`;
             jobStatus.className = `api-response ${type}`;
         }
 
@@ -734,7 +887,7 @@
 
         function updateWsStatus(message, status) {
             const wsStatus = document.getElementById('wsStatus');
-            wsStatus.textContent = `WebSocket: ${message}`;
+            wsStatus.innerHTML = `<div>WebSocket:</div> <pre><code>${message}</code></pre>`;
             wsStatus.className = `status ${status}`;
         }
 
@@ -805,6 +958,37 @@
             await testAcceptJob();
             
             updateFlowResults(prev => prev + '\nSenior flow completed: Job accepted and chat room should be created!');
+        }
+
+        async function runCompleteFlow() {
+            updateFlowResults('Running Complete Job Lifecycle Flow...\n');
+            
+            // User creates job
+            document.getElementById('userType').value = 'user';
+            generateMockToken();
+            await testCreateJob();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // User invites senior
+            await testInviteSenior();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Switch to senior and accept
+            document.getElementById('userType').value = 'senior_user';
+            generateMockToken();
+            await testAcceptJob();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Switch back to user and start job
+            document.getElementById('userType').value = 'user';
+            generateMockToken();
+            await testStartJob();
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate work time
+            
+            // Complete the job
+            await testCompleteJob();
+            
+            updateFlowResults(prev => prev + '\n\nComplete flow finished: Job created → senior invited → accepted → started → completed!');
         }
 
         function runChatFlow() {

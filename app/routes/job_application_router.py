@@ -47,6 +47,46 @@ class JobResponse(BaseModel):
 
 # ===== JOB MANAGEMENT ENDPOINTS =====
 
+@router.get("/my-jobs")
+async def get_my_jobs(
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Get all jobs created by current user"""
+    user, _, _ = ctx
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can view their jobs"
+        )
+    
+    jobs = session.query(Jobs).filter(Jobs.user_id == user.id).all()
+    
+    return {
+        "count": len(jobs),
+        "jobs": [
+            {
+                "id": job.id,
+                "status": job.status.value,
+                "title": job.title,
+                "description": job.description,
+                "price": job.price,
+                "work_type": job.work_type,
+                "vehicle": job.vehicle,
+                "max_seniors": job.max_seniors,
+                "started_at": job.started_at.isoformat() if job.started_at else None,
+                "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+                "location": job.location,
+                "applications_count": len(job.applications),
+                "accepted_seniors_count": len(job.accepted_seniors),
+                "pending_applications_count": len(job.pending_applications),
+                "chat_room_id": job.chat_room.id if job.chat_room else None
+            }
+            for job in jobs
+        ]
+    }
+
+
 @router.get("/{job_id}")
 async def get_job(
     job_id: int, 
@@ -82,6 +122,10 @@ async def get_job(
         "price": job.price,
         "work_type": job.work_type,
         "vehicle": job.vehicle,
+        "max_seniors": job.max_seniors,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+        "location": job.location,
         "applications": [
             {
                 "id": app.id,
@@ -131,6 +175,10 @@ async def create_job(
         price=payload.price,
         work_type=payload.work_type,
         vehicle=payload.vehicle,
+        max_seniors=payload.max_seniors,
+        started_at=payload.started_at,
+        ended_at=payload.ended_at,
+        location=payload.location,
     )
     
     session.add(job)
@@ -147,7 +195,11 @@ async def create_job(
             "description": job.description,
             "price": job.price,
             "work_type": job.work_type,
-            "vehicle": job.vehicle
+            "vehicle": job.vehicle,
+            "max_seniors": job.max_seniors,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+            "location": job.location
         }
     }
 
@@ -197,7 +249,108 @@ async def update_job(
             "description": job.description,
             "price": job.price,
             "work_type": job.work_type,
-            "vehicle": job.vehicle
+            "vehicle": job.vehicle,
+            "max_seniors": job.max_seniors,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+            "location": job.location
+        }
+    }
+
+@router.post("/{job_id}/start")
+async def start_job(
+    job_id: int,
+    session: Session = Depends(get_db),
+    ctx=Depends(get_current_user)
+):
+    """Start a job (set status to IN_PROGRESS and record start time)"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can start jobs"
+        )
+    
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    if job.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You can only start your own jobs"
+        )
+    
+    if job.status != JobStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Job must be accepted before it can be started"
+        )
+    
+    if len(job.accepted_seniors) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Job must have at least one accepted senior before it can be started"
+        )
+    
+    job.status = JobStatus.IN_PROGRESS
+    job.started_at = datetime.utcnow()
+    session.commit()
+    
+    return {
+        "message": "Job started successfully",
+        "job": {
+            "id": job.id,
+            "status": job.status.value,
+            "started_at": job.started_at.isoformat(),
+            "accepted_seniors_count": len(job.accepted_seniors)
+        }
+    }
+
+@router.post("/{job_id}/complete")
+async def complete_job(
+    job_id: int,
+    session: Session = Depends(get_db),
+    ctx=Depends(get_current_user)
+):
+    """Complete a job (set status to COMPLETED and record end time)"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can complete jobs"
+        )
+    
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    if job.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You can only complete your own jobs"
+        )
+    
+    if job.status != JobStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Job must be in progress before it can be completed"
+        )
+    
+    job.status = JobStatus.COMPLETED
+    job.ended_at = datetime.utcnow()
+    session.commit()
+    
+    return {
+        "message": "Job completed successfully",
+        "job": {
+            "id": job.id,
+            "status": job.status.value,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "ended_at": job.ended_at.isoformat(),
+            "duration_hours": job.duration_hours
         }
     }
 
@@ -299,42 +452,6 @@ async def decline_job_invitation(
         }
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
-
-@router.get("/my-jobs")
-async def get_my_jobs(
-    ctx=Depends(get_current_user),
-    session: Session = Depends(get_db)
-):
-    """Get all jobs created by current user"""
-    user, _, _ = ctx
-    
-    if user.role != "user":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, 
-            detail="Only users can view their jobs"
-        )
-    
-    jobs = session.query(Jobs).filter(Jobs.user_id == user.id).all()
-    
-    return {
-        "count": len(jobs),
-        "jobs": [
-            {
-                "id": job.id,
-                "status": job.status.value,
-                "title": job.title,
-                "description": job.description,
-                "price": job.price,
-                "work_type": job.work_type,
-                "vehicle": job.vehicle,
-                "applications_count": len(job.applications),
-                "accepted_seniors_count": len(job.accepted_seniors),
-                "pending_applications_count": len(job.pending_applications),
-                "chat_room_id": job.chat_room.id if job.chat_room else None
-            }
-            for job in jobs
-        ]
-    }
 
 @router.get("/applications/pending")
 async def get_pending_applications(
