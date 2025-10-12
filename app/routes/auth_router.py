@@ -31,7 +31,7 @@ async def request_otp(payload: RequestOTP) -> RequestOTPResponse:
 async def verify_otp(payload: VerifyOTP, session=Depends(get_db)) -> VerifyOTPResponse:
     user_otp = await get_auth_otp(payload.phone)
     if payload.otp != user_otp:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP ไม่ถูกต้อง")
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="OTP ไม่ถูกต้อง หรือ หมดอายุ")
 
     if payload.role not in ["user", "senior_user"]:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid role")

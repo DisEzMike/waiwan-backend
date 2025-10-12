@@ -47,6 +47,12 @@ class JobResponse(BaseModel):
 
 # ===== JOB MANAGEMENT ENDPOINTS =====
 
+@router.get("/all")
+async def get_all_jobs(session: Session = Depends(get_db), ctx=Depends(get_current_user)):
+    """Get history senior's jobs"""
+    from app.database.models.jobs import JobApplicationStatus, JobApplications, Jobs, JobStatus
+    return JobApplicationService.get_job_all_for_senior(session, ctx[0].id)
+
 @router.get("/my-jobs")
 async def get_my_jobs(
     ctx=Depends(get_current_user),
@@ -59,6 +65,7 @@ async def get_my_jobs(
         session=session,
         senior_id=user.id
         )
+        
         return {
             "count": len(job_history),
             "jobs": job_history
@@ -299,7 +306,7 @@ async def start_job(
         )
     
     job.status = JobStatus.IN_PROGRESS
-    job.started_at = datetime.utcnow()
+    # job.started_at = datetime.utcnow()
     session.commit()
     
     return {
@@ -307,7 +314,7 @@ async def start_job(
         "job": {
             "id": job.id,
             "status": job.status.value,
-            "started_at": job.started_at.isoformat(),
+            # "started_at": job.started_at.isoformat(),
             "accepted_seniors_count": len(job.accepted_seniors)
         }
     }
@@ -344,7 +351,7 @@ async def complete_job(
         )
     
     job.status = JobStatus.COMPLETED
-    job.ended_at = datetime.utcnow()
+    # job.ended_at = datetime.utcnow()
     session.commit()
     
     return {
@@ -352,9 +359,9 @@ async def complete_job(
         "job": {
             "id": job.id,
             "status": job.status.value,
-            "started_at": job.started_at.isoformat() if job.started_at else None,
-            "ended_at": job.ended_at.isoformat(),
-            "duration_hours": job.duration_hours
+            # "started_at": job.started_at.isoformat() if job.started_at else None,
+            # "ended_at": job.ended_at.isoformat(),
+            # "duration_hours": job.duration_hours
         }
     }
 

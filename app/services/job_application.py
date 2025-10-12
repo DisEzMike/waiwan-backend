@@ -197,7 +197,9 @@ class JobApplicationService:
                     "vehicle": job.vehicle,
                     "location": job.location,
                     "status": job.status.value,
+                    "application_status": app.status.value,
                     "user_id": job.user_id,
+                    "user_displayname": job.user.displayname if job.user else None,
                     "accepted_at": app.responded_at.isoformat() if app.responded_at else None,
                     "started_at": job.started_at.isoformat() if job.started_at else None,
                     "ended_at": job.ended_at.isoformat() if job.ended_at else None,
@@ -211,6 +213,50 @@ class JobApplicationService:
         # Sort by acceptance date, most recent first
         job_history.sort(key=lambda x: x["accepted_at"] or "", reverse=True)
         return job_history
+
+    @staticmethod
+    def get_job_all_for_senior(session: Session, senior_id: str) -> list[dict]:
+        """Get job history for a senior"""
+        from app.database.models.jobs import JobStatus
+        
+        # Get all applications for this senior that were accepted
+        accepted_applications = session.query(JobApplications).filter(
+            and_(
+                JobApplications.senior_id == senior_id,
+            )
+        ).all()
+        
+        job_history = []
+        for app in accepted_applications:
+            job = app.job
+            if job:
+                # Include jobs that are completed, in progress, or currently accepted
+                job_data = {
+                    "job_id": job.id,
+                    "title": job.title,
+                    "description": job.description,
+                    "price": job.price,
+                    "work_type": job.work_type,
+                    "vehicle": job.vehicle,
+                    "location": job.location,
+                    "status": job.status.value,
+                    "application_status": app.status.value,
+                    "user_id": job.user_id,
+                    "user_displayname": job.user.displayname if job.user else None,
+                    "accepted_at": app.responded_at.isoformat() if app.responded_at else None,
+                    "started_at": job.started_at.isoformat() if job.started_at else None,
+                    "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+                    "duration_hours": job.duration_hours if job.is_completed else None,
+                    "is_completed": job.is_completed,
+                    "is_active": job.is_active,
+                    "chat_room_id": job.chat_room.id if job.chat_room else None
+                }
+                job_history.append(job_data)
+        
+        # Sort by acceptance date, most recent first
+        job_history.sort(key=lambda x: x["accepted_at"] or "", reverse=True)
+        return job_history
+
 
     @staticmethod
     def can_access_chatroom(session: Session, chat_room_id: str, senior_id: str) -> bool:
