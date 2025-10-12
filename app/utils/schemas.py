@@ -146,6 +146,7 @@ class ChatMessageOut(BaseModel):
 class ChatRoomOut(BaseModel):
     id: str
     job_id: int
+    job_title: Optional[str] = None
     user_id: str
     user_name: Optional[str] = None
     seniors: List[dict] = []  # List of accepted seniors with their info

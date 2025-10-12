@@ -346,6 +346,7 @@ async def get_my_chat_rooms(ctx = Depends(get_current_user), session: Session = 
         room_responses.append(ChatRoomOut(
             id=room.id,
             job_id=room.job_id,
+            job_title=room.job.title,
             user_id=room.user_id,
             user_name=room_user.displayname if room_user else None,
             seniors=seniors_info,
@@ -451,6 +452,7 @@ async def get_chat_room(room_id: str, ctx = Depends(get_current_user), session: 
     return ChatRoomWithMessages(
         id=room.id,
         job_id=room.job_id,
+        job_title=room.job.title,
         user_id=room.user_id,
         user_name=room_user.displayname if room_user else None,
         seniors=seniors_info,
@@ -568,9 +570,12 @@ async def create_or_get_chat_room(job_id: int, ctx = Depends(get_current_user), 
         for senior in accepted_seniors
     ]
     
+    print(room.job)
+    
     return ChatRoomOut(
         id=room.id,
         job_id=room.job_id,
+        job_title=room.job.title,
         user_id=room.user_id,
         user_name=room_user.displayname if room_user else None,
         seniors=seniors_info,
