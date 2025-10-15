@@ -431,10 +431,33 @@ async def accept_job_invitation(
         )
         session.commit()
         
+        jobData = {
+            "id": application.job.id,
+            "title": application.job.title,
+            "description": application.job.description,
+            "price": application.job.price,
+            "work_type": application.job.work_type,
+            "vehicle": application.job.vehicle,
+            "location": application.job.location,
+            "status":  application.job.status.value,
+            "application_status": application.status.value,
+            "user_id": application.job.user.id,
+            "user_displayname": application.job.user.displayname,
+            "accepted_at": application.responded_at.isoformat() if application.responded_at else None,
+            "started_at": application.job.started_at,
+            "ended_at": application.job.ended_at,
+            "duration_hours": application.job.duration_hours,
+            "is_completed": application.job.status == JobStatus.COMPLETED,
+            "is_active": application.job.status in [JobStatus.ACCEPTED, JobStatus.IN_PROGRESS],
+            "chat_room_id": application.job.chat_room.id if application.job.chat_room else None
+        }
+        
         return {
             "message": "Job accepted successfully",
             "application_id": application.id,
-            "chat_room_created": True
+            "chat_room_created": True,
+            "job": jobData
+            
         }
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
