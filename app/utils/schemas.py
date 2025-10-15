@@ -117,7 +117,6 @@ class JobPayload(BaseModel):
     id: Optional[int] = None
     status: Optional[int] = None
     user_id: Optional[str] = None
-    senior_id: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None

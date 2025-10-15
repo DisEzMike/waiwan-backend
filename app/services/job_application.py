@@ -1,14 +1,16 @@
 """
 Job Application Service - Handles senior acceptance workflow
 """
+from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 from sqlalchemy import and_
 from datetime import datetime
 from typing import Optional
 
 from app.database.models.jobs import Jobs, JobApplications, JobApplicationStatus
-from app.database.models.senior_users import SeniorUsers
+from app.database.models.senior_users import SeniorProfiles, SeniorUsers
 from app.database.models.chats import ChatRooms
+from app.utils.file_upload import get_file_url
 
 
 class JobApplicationService:
@@ -257,7 +259,55 @@ class JobApplicationService:
         job_history.sort(key=lambda x: x["accepted_at"] or "", reverse=True)
         return job_history
 
-
+    async def get_job_all_for_user(session: Session, user_id: str) -> list[dict]:
+        """Get job history for a user"""
+        from app.database.models.jobs import JobStatus
+        
+        # Get all jobs for this user
+        jobs = session.query(Jobs).filter(
+            Jobs.user_id == user_id,
+        ).all()
+        
+        
+        job_history = []
+        for job in jobs:
+            # Include jobs that are completed, in progress, or currently accepted
+            job_data = {
+                "job_id": job.id,
+                "title": job.title,
+                "description": job.description,
+                "price": job.price,
+                "work_type": job.work_type,
+                "vehicle": job.vehicle,
+                "location": job.location,
+                "status": job.status.value,
+                "user_id": job.user_id,
+                "user_displayname": job.user.displayname if job.user else None,
+                "started_at": job.started_at.isoformat() if job.started_at else None,
+                "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+                "duration_hours": job.duration_hours if job.is_completed else None,
+                "is_completed": job.is_completed,
+                "is_active": job.is_active,
+                "chat_room_id": job.chat_room.id if job.chat_room else None,
+                "max_seniors": job.max_seniors,
+                ""
+                "seniors": [
+                    {
+                        "senior_id": app.senior_id,
+                        "senior_displayname": app.senior.displayname if app.senior else None,
+                        "senior_image_url": await run_in_threadpool(get_file_url, app.senior.profile.profile_image.file_path) if app.senior and app.senior.profile and app.senior.profile.profile_image else None,
+                        "application_status": app.status.value,
+                        "responded_at": app.responded_at.isoformat() if app.responded_at else None
+                    }
+                    for app in job.applications
+                ]
+            }
+            
+            job_history.append(job_data)
+        
+        # Sort by creation date, most recent first
+        job_history.sort(key=lambda x: x["started_at"] or 0, reverse=True)
+        return job_history
     @staticmethod
     def can_access_chatroom(session: Session, chat_room_id: str, senior_id: str) -> bool:
         """Check if senior can access a chatroom (must have accepted the job)"""

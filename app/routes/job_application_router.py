@@ -11,6 +11,7 @@ from typing import Optional
 from app.utils.deps import get_current_user, get_db
 from app.services.job_application import JobApplicationService
 from app.database.models.jobs import Jobs, JobApplications, JobApplicationStatus, JobStatus
+from app.utils.file_upload import get_file_url
 from app.utils.schemas import JobPayload
 
 router = APIRouter(prefix="/jobs", tags=["jobs"])  # Changed prefix to /jobs
@@ -50,8 +51,11 @@ class JobResponse(BaseModel):
 @router.get("/all")
 async def get_all_jobs(session: Session = Depends(get_db), ctx=Depends(get_current_user)):
     """Get history senior's jobs"""
-    from app.database.models.jobs import JobApplicationStatus, JobApplications, Jobs, JobStatus
-    return JobApplicationService.get_job_all_for_senior(session, ctx[0].id)
+    current_user = ctx[0]
+    if current_user.role == 'senior_user' :
+        return JobApplicationService.get_job_all_for_senior(session, current_user.id)
+    elif current_user.role == 'user':
+        return await JobApplicationService.get_job_all_for_user(session, current_user.id)
 
 @router.get("/my-jobs")
 async def get_my_jobs(
@@ -72,6 +76,7 @@ async def get_my_jobs(
         }
     
     jobs = session.query(Jobs).filter(Jobs.user_id == user.id).all()
+    jobs = sorted(jobs, key=lambda x: x.updated_at, reverse=True)
     
     return {
         "count": len(jobs),
@@ -142,17 +147,19 @@ async def get_job(
                 "id": app.id,
                 "senior_id": app.senior_id,
                 "senior_name": app.senior.displayname if app.senior else "Unknown",
+                "image_url": get_file_url(app.senior.profile.profile_image.file_path) if app.senior.profile and app.senior.profile.profile_image else None,
                 "status": app.status.value,
                 "applied_at": app.applied_at.isoformat(),
                 "responded_at": app.responded_at.isoformat() if app.responded_at else None,
                 "message": app.message
             }
-            for app in job.applications
+            for app in sorted(job.applications, key=lambda x: x.status.value == JobApplicationStatus.ACCEPTED.value, reverse=True)
         ],
         "accepted_seniors": [
             {
                 "id": senior.id,
-                "displayname": senior.displayname
+                "displayname": senior.displayname,
+                "image_url": get_file_url(senior.profile.profile_image.file_path) if senior.profile and senior.profile.profile_image else None
             }
             for senior in job.accepted_seniors
         ],
