@@ -1,0 +1,616 @@
+"""
+Job Application Router - API endpoints for job acceptance workflow
+"""
+from datetime import datetime
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from sqlalchemy import update
+from pydantic import BaseModel
+from typing import Optional
+
+from app.utils.deps import get_current_user, get_db
+from app.services.job_application import JobApplicationService
+from app.database.models.jobs import Jobs, JobApplications, JobApplicationStatus, JobStatus
+from app.utils.file_upload import get_file_url
+from app.utils.schemas import JobPayload
+
+router = APIRouter(prefix="/jobs", tags=["jobs"])  # Changed prefix to /jobs
+
+class JobApplicationResponse(BaseModel):
+    id: int
+    job_id: int
+    senior_id: str
+    status: str
+    applied_at: str
+    responded_at: Optional[str]
+    message: Optional[str]
+
+class InviteSeniorRequest(BaseModel):
+    senior_id: str
+    message: Optional[str] = None
+
+class RespondToJobRequest(BaseModel):
+    message: Optional[str] = None
+
+class JobResponse(BaseModel):
+    id: int
+    status: str
+    user_id: str
+    title: Optional[str]
+    description: Optional[str]
+    price: Optional[float]
+    work_type: Optional[str]
+    vehicle: Optional[bool]
+    created_at: str
+    applications_count: int
+    accepted_seniors_count: int
+    chat_room_id: Optional[str]
+
+# ===== JOB MANAGEMENT ENDPOINTS =====
+
+@router.get("/all")
+async def get_all_jobs(session: Session = Depends(get_db), ctx=Depends(get_current_user)):
+    """Get history senior's jobs"""
+    current_user = ctx[0]
+    if current_user.role == 'senior_user' :
+        return JobApplicationService.get_job_all_for_senior(session, current_user.id)
+    elif current_user.role == 'user':
+        return await JobApplicationService.get_job_all_for_user(session, current_user.id)
+
+@router.get("/my-jobs")
+async def get_my_jobs(
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Get all jobs created by current user"""
+    user, _, _ = ctx
+    if user.role != "user":
+        job_history = JobApplicationService.get_job_history_for_senior(
+        session=session,
+        senior_id=user.id
+        )
+        
+        return {
+            "count": len(job_history),
+            "jobs": job_history
+        }
+    
+    jobs = session.query(Jobs).filter(Jobs.user_id == user.id).all()
+    jobs = sorted(jobs, key=lambda x: x.updated_at, reverse=True)
+    
+    return {
+        "count": len(jobs),
+        "jobs": [
+            {
+                "id": job.id,
+                "status": job.status.value,
+                "title": job.title,
+                "description": job.description,
+                "price": job.price,
+                "work_type": job.work_type,
+                "vehicle": job.vehicle,
+                "max_seniors": job.max_seniors,
+                "started_at": job.started_at.isoformat() if job.started_at else None,
+                "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+                "location": job.location,
+                "applications_count": len(job.applications),
+                "accepted_seniors_count": len(job.accepted_seniors),
+                "pending_applications_count": len(job.pending_applications),
+                "chat_room_id": job.chat_room.id if job.chat_room else None
+            }
+            for job in jobs
+        ]
+    }
+
+
+@router.get("/{job_id}")
+async def get_job(
+    job_id: int, 
+    session: Session = Depends(get_db), 
+    ctx=Depends(get_current_user)
+):
+    """Get job details with applications and chat room info"""
+    user, _, _ = ctx
+    
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    # Check if user has access to this job
+    if user.role == "user" and job.user_id != user.id:
+        # Only job owner can see job details
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    elif user.role == "senior_user":
+        # Senior can see if they have application for this job
+        has_application = session.query(JobApplications).filter(
+            JobApplications.job_id == job_id,
+            JobApplications.senior_id == user.id
+        ).first()
+        if not has_application:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+    
+    return {
+        "id": job.id,
+        "status": job.status.value,
+        "user_id": job.user_id,
+        "title": job.title,
+        "description": job.description,
+        "price": job.price,
+        "work_type": job.work_type,
+        "vehicle": job.vehicle,
+        "max_seniors": job.max_seniors,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+        "location": job.location,
+        "applications": [
+            {
+                "id": app.id,
+                "senior_id": app.senior_id,
+                "senior_name": app.senior.displayname if app.senior else "Unknown",
+                "image_url": get_file_url(app.senior.profile.profile_image.file_path) if app.senior.profile and app.senior.profile.profile_image else None,
+                "status": app.status.value,
+                "applied_at": app.applied_at.isoformat(),
+                "responded_at": app.responded_at.isoformat() if app.responded_at else None,
+                "message": app.message
+            }
+            for app in sorted(job.applications, key=lambda x: x.status.value == JobApplicationStatus.ACCEPTED.value, reverse=True)
+        ],
+        "accepted_seniors": [
+            {
+                "id": senior.id,
+                "displayname": senior.displayname,
+                "image_url": get_file_url(senior.profile.profile_image.file_path) if senior.profile and senior.profile.profile_image else None
+            }
+            for senior in job.accepted_seniors
+        ],
+        "chat_room": {
+            "id": job.chat_room.id,
+            "is_active": job.chat_room.is_active
+        } if job.chat_room else None
+    }
+
+@router.post("")
+async def create_job(
+    payload: JobPayload, 
+    session: Session = Depends(get_db), 
+    ctx=Depends(get_current_user)
+):
+    """Create a new job"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can create jobs"
+        )
+    
+    # Create the job
+    job = Jobs(
+        status=JobStatus.PROPOSED,  # Always start as PROPOSED
+        user_id=user.id,
+        title=payload.title,
+        description=payload.description,
+        price=payload.price,
+        work_type=payload.work_type,
+        vehicle=payload.vehicle,
+        max_seniors=payload.max_seniors,
+        started_at=payload.started_at,
+        ended_at=payload.ended_at,
+        location=payload.location,
+    )
+    
+    session.add(job)
+    session.flush()
+    session.commit()
+    
+    return {
+        "message": "Job created successfully",
+        "job": {
+            "id": job.id,
+            "status": job.status.value,
+            "user_id": job.user_id,
+            "title": job.title,
+            "description": job.description,
+            "price": job.price,
+            "work_type": job.work_type,
+            "vehicle": job.vehicle,
+            "max_seniors": job.max_seniors,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+            "location": job.location
+        }
+    }
+
+@router.patch("/{job_id}")
+async def update_job(
+    job_id: int,
+    payload: JobPayload, 
+    session: Session = Depends(get_db), 
+    ctx=Depends(get_current_user)
+):
+    """Update an existing job"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can update jobs"
+        )
+    
+    # Get the job
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    # Check ownership
+    if job.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You can only update your own jobs"
+        )
+    
+    # Update job fields
+    update_data = payload.model_dump(exclude_unset=True, exclude_none=True, exclude={'id'})
+    
+    for field, value in update_data.items():
+        setattr(job, field, value)
+    
+    session.commit()
+    
+    return {
+        "message": "Job updated successfully",
+        "job": {
+            "id": job.id,
+            "status": job.status.value,
+            "user_id": job.user_id,
+            "title": job.title,
+            "description": job.description,
+            "price": job.price,
+            "work_type": job.work_type,
+            "vehicle": job.vehicle,
+            "max_seniors": job.max_seniors,
+            "started_at": job.started_at.isoformat() if job.started_at else None,
+            "ended_at": job.ended_at.isoformat() if job.ended_at else None,
+            "location": job.location
+        }
+    }
+
+@router.post("/{job_id}/start")
+async def start_job(
+    job_id: int,
+    session: Session = Depends(get_db),
+    ctx=Depends(get_current_user)
+):
+    """Start a job (set status to IN_PROGRESS and record start time)"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can start jobs"
+        )
+    
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    if job.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You can only start your own jobs"
+        )
+    
+    if job.status != JobStatus.ACCEPTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Job must be accepted before it can be started"
+        )
+    
+    if len(job.accepted_seniors) == 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Job must have at least one accepted senior before it can be started"
+        )
+    
+    job.status = JobStatus.IN_PROGRESS
+    # job.started_at = datetime.utcnow()
+    session.commit()
+    
+    return {
+        "message": "Job started successfully",
+        "job": {
+            "id": job.id,
+            "status": job.status.value,
+            # "started_at": job.started_at.isoformat(),
+            "accepted_seniors_count": len(job.accepted_seniors)
+        }
+    }
+
+@router.post("/{job_id}/complete")
+async def complete_job(
+    job_id: int,
+    session: Session = Depends(get_db),
+    ctx=Depends(get_current_user)
+):
+    """Complete a job (set status to COMPLETED and record end time)"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can complete jobs"
+        )
+    
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    if job.user_id != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You can only complete your own jobs"
+        )
+    
+    if job.status != JobStatus.IN_PROGRESS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Job must be in progress before it can be completed"
+        )
+    
+    job.status = JobStatus.COMPLETED
+    # job.ended_at = datetime.utcnow()
+    session.commit()
+    
+    return {
+        "message": "Job completed successfully",
+        "job": {
+            "id": job.id,
+            "status": job.status.value,
+            # "started_at": job.started_at.isoformat() if job.started_at else None,
+            # "ended_at": job.ended_at.isoformat(),
+            # "duration_hours": job.duration_hours
+        }
+    }
+
+# ===== JOB APPLICATION ENDPOINTS =====
+
+@router.post("/{job_id}/invite")
+async def invite_senior_to_job(
+    job_id: int,
+    request: InviteSeniorRequest,
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """User invites a senior to apply for their job"""
+    user, _, _ = ctx
+    
+    if user.role != "user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only users can invite seniors to jobs"
+        )
+    
+    try:
+        application = JobApplicationService.invite_senior_to_job(
+            session=session,
+            job_id=job_id,
+            senior_id=request.senior_id,
+            message=request.message
+        )
+        session.commit()
+        
+        return {
+            "message": "Senior invited successfully",
+            "application_id": application.id
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.post("/{job_id}/accept")
+async def accept_job_invitation(
+    job_id: int,
+    request: RespondToJobRequest,
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Senior accepts a job invitation"""
+    user, _, _ = ctx
+    
+    if user.role != "senior_user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only senior users can accept job invitations"
+        )
+    
+    try:
+        application = JobApplicationService.accept_job(
+            session=session,
+            job_id=job_id,
+            senior_id=user.id,
+            message=request.message
+        )
+        session.commit()
+        
+        jobData = {
+            "id": application.job.id,
+            "title": application.job.title,
+            "description": application.job.description,
+            "price": application.job.price,
+            "work_type": application.job.work_type,
+            "vehicle": application.job.vehicle,
+            "location": application.job.location,
+            "status":  application.job.status.value,
+            "application_status": application.status.value,
+            "user_id": application.job.user.id,
+            "user_displayname": application.job.user.displayname,
+            "accepted_at": application.responded_at.isoformat() if application.responded_at else None,
+            "started_at": application.job.started_at,
+            "ended_at": application.job.ended_at,
+            "duration_hours": application.job.duration_hours,
+            "is_completed": application.job.status == JobStatus.COMPLETED,
+            "is_active": application.job.status in [JobStatus.ACCEPTED, JobStatus.IN_PROGRESS],
+            "chat_room_id": application.job.chat_room.id if application.job.chat_room else None
+        }
+        
+        return {
+            "message": "Job accepted successfully",
+            "application_id": application.id,
+            "chat_room_created": True,
+            "job": jobData
+            
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.post("/{job_id}/decline")
+async def decline_job_invitation(
+    job_id: int,
+    request: RespondToJobRequest,
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Senior declines a job invitation"""
+    user, _, _ = ctx
+    
+    if user.role != "senior_user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only senior users can decline job invitations"
+        )
+    
+    try:
+        application = JobApplicationService.decline_job(
+            session=session,
+            job_id=job_id,
+            senior_id=user.id,
+            message=request.message
+        )
+        session.commit()
+        
+        return {
+            "message": "Job declined",
+            "application_id": application.id
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
+
+@router.get("/applications/pending")
+async def get_pending_applications(
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Get all pending job applications for current senior"""
+    user, _, _ = ctx
+    
+    if user.role != "senior_user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only senior users can view their applications"
+        )
+    
+    applications = JobApplicationService.get_pending_applications_for_senior(
+        session=session,
+        senior_id=user.id
+    )
+    
+    return {
+        "count": len(applications),
+        "applications": [
+            {
+                "id": app.id,
+                "job_id": app.job_id,
+                "job_title": app.job.title,
+                "job_description": app.job.description,
+                "job_price": app.job.price,
+                "applied_at": app.applied_at.isoformat(),
+                "message": app.message
+            }
+            for app in applications
+        ]
+    }
+
+@router.get("/applications/accepted")
+async def get_accepted_jobs(
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Get all jobs accepted by current senior"""
+    user, _, _ = ctx
+    
+    if user.role != "senior_user":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="Only senior users can view their accepted jobs"
+        )
+    
+    jobs = JobApplicationService.get_accepted_jobs_for_senior(
+        session=session,
+        senior_id=user.id
+    )
+    
+    return {
+        "count": len(jobs),
+        "jobs": [
+            {
+                "id": job.id,
+                "title": job.title,
+                "description": job.description,
+                "price": job.price,
+                "work_type": job.work_type,
+                "vehicle": job.vehicle,
+                "user_id": job.user_id,
+                "chat_room_id": job.chat_room.id if job.chat_room else None
+            }
+            for job in jobs
+        ]
+    }
+
+@router.get("/{job_id}/flow-test")
+async def test_flow(
+    job_id: int,
+    ctx=Depends(get_current_user),
+    session: Session = Depends(get_db)
+):
+    """Test endpoint to verify the complete flow"""
+    user, _, _ = ctx
+    
+    from app.database.models.jobs import Jobs, JobStatus
+    
+    job = session.get(Jobs, job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Job not found")
+    
+    # Get job applications
+    applications = session.query(JobApplications).filter(JobApplications.job_id == job_id).all()
+    
+    # Get chat room
+    chat_room = job.chat_room
+    
+    return {
+        "job": {
+            "id": job.id,
+            "title": job.title,
+            "status": job.status.value,
+            "user_id": job.user_id
+        },
+        "applications": [
+            {
+                "id": app.id,
+                "senior_id": app.senior_id,
+                "status": app.status.value,
+                "applied_at": app.applied_at.isoformat(),
+                "responded_at": app.responded_at.isoformat() if app.responded_at else None
+            }
+            for app in applications
+        ],
+        "chat_room": {
+            "id": chat_room.id,
+            "is_active": chat_room.is_active,
+            "accepted_seniors_count": len(chat_room.accepted_seniors)
+        } if chat_room else None,
+        "flow_status": {
+            "can_chat": job.status in [JobStatus.ACCEPTED, JobStatus.IN_PROGRESS],
+            "accepted_seniors": len(job.accepted_seniors),
+            "pending_applications": len(job.pending_applications)
+        }
+    }

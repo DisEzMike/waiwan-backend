@@ -3,9 +3,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.concurrency import run_in_threadpool
 from sqlalchemy.orm import Session
 
-from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
+from ..utils.file_upload import get_file_url
 
-from ..services.user import getAbility_by_id, getProfile_by_id, getUser_by_id, set_online
+from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
+from ..database.models.users import UserProfiles, Users
+
+from ..services.user import getAbility_by_id, getProfile_by_id, getSenior_by_id, getUser_by_id, set_online
 
 from ..utils.deps import get_current_user, get_db
 from ..utils.schemas import AbilityOut, HeartbeatIn, UserResponse, ProfileOut, UserOut
@@ -13,8 +16,11 @@ from ..utils.schemas import AbilityOut, HeartbeatIn, UserResponse, ProfileOut, U
 router = APIRouter(prefix="/user", tags=["user"])
 
 @router.get("/me",  response_model=UserResponse)
-def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
+async def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
     user, profile, ability = ctx
+    profile_image = profile.profile_image
+    if profile_image:
+        profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
     return UserResponse(
         user=UserOut(
             id=user.id,
@@ -28,19 +34,20 @@ def get_me(ctx = Depends(get_current_user), session: Session = Depends(get_db)):
             id=profile.id,
             first_name=profile.first_name,
             last_name=profile.last_name,
-            id_card=profile.id_card if user.role == "senior_user" else None,
-            addr_from_id=profile.addr_from_id if user.role == "senior_user" else None,
-            addr_current=profile.addr_current if user.role == "senior_user" else None,
+            id_card=profile.id_card,
+            id_address=profile.id_address,
+            current_address=profile.current_address,
             phone=profile.phone,
             gender=profile.gender,
-            underlying_diseases=profile.underlying_diseases if user.role == "senior_user" else None,
+            chronic_diseases=profile.chronic_diseases if user.role == "senior_user" else None,
             contact_person=profile.contact_person if user.role == "senior_user" else None,
             contact_phone=profile.contact_phone if user.role == "senior_user" else None,
+            image_url=profile.image_url if profile.profile_image else None
         ),
         ability=(AbilityOut(
             id=ability.id,
             type=ability.type,
-            career=ability.career,
+            work_experience=ability.work_experience,
             other_ability=ability.other_ability,
             vehicle=ability.vehicle,
             offsite_work=ability.offsite_work 
@@ -79,8 +86,8 @@ async def update_me(
                     db_profile.addr_from_id = payload.profile.addr_from_id
                 if payload.profile.addr_current:
                     db_profile.addr_current = payload.profile.addr_current
-                if payload.profile.underlying_diseases:
-                    db_profile.underlying_diseases = payload.profile.underlying_diseases
+                if payload.profile.chronic_diseases:
+                    db_profile.chronic_diseases = payload.profile.chronic_diseases
                 if payload.profile.contact_person:
                     db_profile.contact_person = payload.profile.contact_person
                 if payload.profile.contact_phone:
@@ -92,17 +99,23 @@ async def update_me(
 
 @router.get("/{user_id}")
 async def get_user(user_id: str, ctx = Depends(get_current_user), session: Session = Depends(get_db)):
-    user: SeniorUsers | None = getUser_by_id(user_id, session)
+    user: SeniorUsers | Users | None = getSenior_by_id(user_id, session)
+    ability: SeniorAbilities | None = None
+    if user:
+        ability: SeniorAbilities | None = user.ability
+    if user is None : user = getUser_by_id(user_id, session)
     if user is None : raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     profile: SeniorProfiles = user.profile
-    ability: SeniorAbilities = user.ability
+    profile_image = profile.profile_image
+    if profile_image:
+        profile.image_url = await run_in_threadpool(get_file_url, profile_image.file_path)
     return UserResponse(
         user=UserOut(
             id=user.id,
             role="senior_user",
             displayname=user.displayname,
             profile_id=user.profile_id,
-            ability_id=user.ability_id,
+            ability_id=user.ability_id if ability else None,
             created_at=user.created_at
         ),
         profile=ProfileOut(
@@ -110,22 +123,23 @@ async def get_user(user_id: str, ctx = Depends(get_current_user), session: Sessi
             first_name=profile.first_name,
             last_name=profile.last_name,
             id_card=profile.id_card,
-            addr_from_id=profile.addr_from_id,
-            addr_current=profile.addr_current,
+            id_address=profile.id_address,
+            current_address=profile.current_address,
             phone=profile.phone,
             gender=profile.gender,
-            underlying_diseases=profile.underlying_diseases,
-            contact_person=profile.contact_person,
-            contact_phone=profile.contact_phone,
+            chronic_diseases=profile.chronic_diseases if ability else None,
+            contact_person=profile.contact_person if ability else None,
+            contact_phone=profile.contact_phone if ability else None,
+            image_url=profile.image_url if profile.profile_image else None
         ),
-        ability=AbilityOut(
+        ability=(AbilityOut(
             id=ability.id,
             type=ability.type,
-            career=ability.career,
+            work_experience=ability.work_experience,
             other_ability=ability.other_ability,
             vehicle=ability.vehicle,
             offsite_work=ability.offsite_work 
-        )
+        ) if ability else None)
     )
 
 @router.post("/set-online", status_code=status.HTTP_204_NO_CONTENT)

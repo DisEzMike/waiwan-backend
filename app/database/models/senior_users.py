@@ -3,6 +3,11 @@ from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, Boolea
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from pgvector.sqlalchemy import Vector
 import secrets
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .jobs import JobApplications
+    from .files import Files
 
 from ..db import Base
 
@@ -27,10 +32,9 @@ class SeniorUsers(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
     # ORM relationships (one-to-one แบบ uselist=False)
-    profile = relationship("SeniorProfiles", back_populates="user", uselist=False)
-    ability = relationship("SeniorAbilities", back_populates="user", uselist=False)
-    job = relationship("Jobs", back_populates="senior", uselist=True)
-    chat_rooms = relationship("ChatRooms", back_populates="senior", uselist=True)
+    profile: Mapped["SeniorProfiles"] = relationship("SeniorProfiles", back_populates="user", uselist=False)
+    ability: Mapped["SeniorAbilities"] = relationship("SeniorAbilities", back_populates="user", uselist=False)
+    job_applications: Mapped[list["JobApplications"]] = relationship("JobApplications", back_populates="senior", uselist=True)
 
 class SeniorProfiles(Base):
     __tablename__ = "senior_profiles"
@@ -42,17 +46,17 @@ class SeniorProfiles(Base):
     first_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     last_name: Mapped[str | None] = mapped_column(Text, nullable=True)
     id_card: Mapped[str | None] = mapped_column(Text, nullable=True)
-    addr_from_id: Mapped[str | None] = mapped_column(Text, nullable=True)
-    addr_current: Mapped[str | None] = mapped_column(Text, nullable=True)
-    underlying_diseases: Mapped[str | None] = mapped_column(Text, nullable=True)
+    id_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    current_address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    chronic_diseases: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact_person: Mapped[str | None] = mapped_column(Text, nullable=True)
     contact_phone: Mapped[str | None] = mapped_column(Text, nullable=True)
     phone: Mapped[str] = mapped_column(Text, unique=True, index=True, nullable=False)
     gender: Mapped[str | None] = mapped_column(Text, nullable=True)
     profile_image_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("files.id", ondelete="SET NULL"), nullable=True)
 
-    user = relationship("SeniorUsers", back_populates="profile", uselist=False)
-    profile_image = relationship("Files", uselist=False)
+    user: Mapped["SeniorUsers"] = relationship("SeniorUsers", back_populates="profile", uselist=False)
+    profile_image: Mapped["Files"] = relationship("Files", uselist=False)
 
 class SeniorAbilities(Base):
     __tablename__ = "senior_abilities"
@@ -62,11 +66,11 @@ class SeniorAbilities(Base):
     
     id: Mapped[str] = mapped_column(Text, primary_key=True, index=True, default=lambda: gen_hex_id("SA"))
     type: Mapped[str | None] = mapped_column(Text, nullable=True)
-    career: Mapped[str | None] = mapped_column(Text, nullable=True)
+    work_experience: Mapped[str | None] = mapped_column(Text, nullable=True)
     other_ability: Mapped[str | None] = mapped_column(Text, nullable=True)
     vehicle: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     offsite_work: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # embedding vector(384)
     embedding = Column(Vector(384), nullable=True)
 
-    user = relationship("SeniorUsers", back_populates="ability", uselist=False)
+    user: Mapped["SeniorUsers"] = relationship("SeniorUsers", back_populates="ability", uselist=False)

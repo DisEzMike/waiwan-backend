@@ -2,35 +2,52 @@ from __future__ import annotations
 from typing import List, Optional
 from pydantic import BaseModel, Field
 from datetime import datetime
+
+from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
+from ..database.models.users import UserProfiles, Users
 # ---------- Auth ----------
 class RequestOTP(BaseModel):
     phone: str
+
+class RequestOTPResponse(BaseModel):
+    message: str
 
 class VerifyOTP(BaseModel):
     phone: str
     otp: str = Field(..., description="fixed 1234")
     role: str = Field(..., description='"user" | "senior_user"')
 
-    # สมัครสมาชิกครั้งแรก (optional)
-    displayname: Optional[str] = None
+class VerifyOTPResponse(BaseModel):
+    is_new: bool
+    auth_code: str  # ใช้ในการสร้าง user ต่อ
+
+class ProfilePayload(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     id_card: Optional[str] = None
-    addr_form_id: Optional[str] = None
-    addr_current: Optional[str] = None
-    underlying_disease: Optional[str] = None
+    id_address: Optional[str] = None
+    current_address: Optional[str] = None
+    phone: str
+    gender: Optional[str] = None
+    chronic_diseases: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
-    gender: Optional[str] = None
-    
-    type: Optional[str] = None
-    career: Optional[str] = None
-    other_ability: Optional[str] = None
-    vihecle: Optional[bool] = None
-    offsite_work: Optional[bool] = None
-    # file_id: Optional[int] = None
-    # embedding: Optional[List[float]] = None  # ต้องยาว 384 ถ้าส่งมา
+    image_url: Optional[str] = None
 
+class AbilityPayload(BaseModel):
+    type: Optional[str] = None
+    work_experience: Optional[str] = None
+    other_ability: Optional[str] = None
+    vehicle: Optional[bool] = None
+    offsite_work: Optional[bool] = None
+    file_id: Optional[int] = None
+    embedding: Optional[List[float]] = None  # ต้องยาว 384 ถ้าส่งมา
+class CreateUserPayload(BaseModel):
+    # สมัครสมาชิกครั้งแรก (optional)
+    displayname: Optional[str] = None
+    profile: Optional[ProfilePayload] = None
+    ability: Optional[AbilityPayload] = None
+    
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -53,18 +70,19 @@ class ProfileOut(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     id_card: Optional[str] = None
-    addr_from_id: Optional[str] = None
-    addr_current: Optional[str] = None
+    id_address: Optional[str] = None
+    current_address: Optional[str] = None
     phone: str
     gender: Optional[str] = None
-    underlying_diseases: Optional[str] = None
+    chronic_diseases: Optional[str] = None
     contact_person: Optional[str] = None
     contact_phone: Optional[str] = None
+    image_url: Optional[str] = None
 
 class AbilityOut(BaseModel):
     id: str
     type: Optional[str] = None
-    career: Optional[str] = None
+    work_experience: Optional[str] = None
     other_ability: Optional[str] = None
     vehicle: Optional[bool] = None
     offsite_work: Optional[bool] = None
@@ -99,12 +117,15 @@ class JobPayload(BaseModel):
     id: Optional[int] = None
     status: Optional[int] = None
     user_id: Optional[str] = None
-    senior_id: Optional[str] = None
     title: Optional[str] = None
     description: Optional[str] = None
     price: Optional[float] = None
     work_type: Optional[str] = None
     vehicle: Optional[bool] = None
+    max_seniors: Optional[int] = Field(None, description="Maximum number of seniors allowed for this job")
+    started_at: Optional[datetime] = Field(None, description="When the job started")
+    ended_at: Optional[datetime] = Field(None, description="When the job ended")
+    location: Optional[dict] = Field(None, description="Location information (lat, lng, address)")
     updated_at: Optional[datetime] = None
 
 # ---------- Chat ----------
@@ -124,10 +145,10 @@ class ChatMessageOut(BaseModel):
 class ChatRoomOut(BaseModel):
     id: str
     job_id: int
+    job_title: Optional[str] = None
     user_id: str
-    senior_id: str
     user_name: Optional[str] = None
-    senior_name: Optional[str] = None
+    seniors: List[dict] = []  # List of accepted seniors with their info
     is_active: bool
     created_at: datetime
     unread_count: Optional[int] = None

@@ -1,11 +1,17 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.database.models.users import Users
+
 from ..database.redis import set_presence_and_loc
 
 from ..database.models.senior_users import SeniorAbilities, SeniorProfiles, SeniorUsers
 
 def getUser_by_id(user_id: str, session: Session):
+    user = session.execute(select(Users).where(Users.id == user_id)).scalars().first()
+    return user
+
+def getSenior_by_id(user_id: str, session: Session):
     user = session.execute(select(SeniorUsers).where(SeniorUsers.id == user_id)).scalars().first()
     return user
 

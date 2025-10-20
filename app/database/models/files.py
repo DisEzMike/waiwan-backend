@@ -2,6 +2,11 @@ from __future__ import annotations
 from sqlalchemy import Column, Integer, Text, DateTime, func, ForeignKey, Float, Boolean, String
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 import secrets
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .users import UserProfiles
+    from .senior_users import SeniorProfiles
 
 from ..db import Base
 
@@ -23,6 +28,6 @@ class Files(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     
     # ORM relationships
-    user_profiles = relationship("UserProfiles", back_populates="profile_image", uselist=True)
-    senior_profiles = relationship("SeniorProfiles", back_populates="profile_image", uselist=True)
+    user_profiles: Mapped[list["UserProfiles"]] = relationship("UserProfiles", back_populates="profile_image", uselist=True)
+    senior_profiles: Mapped[list["SeniorProfiles"]] = relationship("SeniorProfiles", back_populates="profile_image", uselist=True)
     

@@ -50,10 +50,7 @@ async def upload_file(
         
         db.add(db_file)
         db.flush()  # Get the ID
-        
-        print(is_profile_image, db_file.id)
-        
-        # If it's a profile image, update user profile
+
         if is_profile_image and file.content_type.startswith('image/'):
             if current_user.role == 'user':
                 user_profile = db.get(UserProfiles, current_user.profile_id)
@@ -66,14 +63,9 @@ async def upload_file(
                             await delete_file(old_file.file_path)
                     
                     user_profile.profile_image_id = db_file.id
-                    # stmt = (
-                    #     update(UserProfiles).where(UserProfiles.id == user_profile.id).
-                    #     values(profile_image_id=db_file.id)
-                    # )
-                    # db.execute(stmt)
             
             elif current_user.role == 'senior_user':
-                senior_profile = db.get(SeniorProfiles, current_user.id)
+                senior_profile = db.get(SeniorProfiles, current_user.profile_id)
                 if senior_profile:
                     # Deactivate old profile image if exists
                     if senior_profile.profile_image_id:
